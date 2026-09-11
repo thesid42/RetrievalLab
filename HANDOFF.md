@@ -15,6 +15,21 @@ The initial import uses the authenticated owner's GitHub no-reply commit email.
 
 ## Continue here
 
+Latest UI change: a legibility pass in `web/src/styles.css`, following the initial
+GitHub publication above.
+
+- Main reading text is 16-17px at the default browser font setting; regular labels
+  are 14-15px and secondary metadata is 12-13px. Sizing uses `rem`.
+- Secondary text has stronger contrast; excerpts and provider statuses wrap instead
+  of being squeezed into tiny single-line rows.
+- Panels, controls and strategy rows have more space. Both navigation tabs remain
+  available on mobile; the session-key popup stays above the page content.
+- Browser checks used explicit synthetic UI data at 1440px, 390px and 320px widths.
+  No horizontal page overflow or visible text below 12px remained in the checked views.
+  The normal preview width was restored. No backend behavior or dependencies changed.
+- The existing `npm run build` completed successfully. The generic Sites build helper
+  was incompatible with the Windows npm wrapper, so the project build was used directly.
+
 Read `AUDIT_TRIAGE.md` for findings, fixes, verification results and open work, then
 `README.md` for the current setup/check commands. The original architecture document
 remains a product proposal; its example scores are illustrative.
