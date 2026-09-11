@@ -1,0 +1,112 @@
+[
+  {
+    "id": "auth-guide",
+    "title": "Authentication Architecture Guide",
+    "content": "Authentication requests pass through the identity gateway, session validator, and policy engine. SSO uses SAML assertions while OAuth login uses signed access tokens. Check gateway logs before changing identity-provider settings.",
+    "product": "authentication",
+    "version": "4.2",
+    "published_at": "2026-05-15T00:00:00Z",
+    "document_type": "guide",
+    "tags": ["authentication", "sso", "oauth"]
+  },
+  {
+    "id": "sso-setup",
+    "title": "Enterprise SSO Setup",
+    "content": "Configure the SAML audience, assertion consumer URL, signing certificate, and group mapping. A mismatch between the configured audience and assertion recipient causes a generic login rejection.",
+    "product": "authentication",
+    "version": "4.2",
+    "published_at": "2026-06-01T00:00:00Z",
+    "document_type": "guide",
+    "tags": ["sso", "saml", "setup"]
+  },
+  {
+    "id": "oauth-guide",
+    "title": "OAuth Login Guide",
+    "content": "OAuth authorization code flow exchanges a short-lived code for tokens. Validate redirect URIs exactly and rotate client secrets without overlapping invalid credentials.",
+    "product": "authentication",
+    "version": "4.2",
+    "published_at": "2026-06-10T00:00:00Z",
+    "document_type": "guide",
+    "tags": ["oauth", "login"]
+  },
+  {
+    "id": "auth-431",
+    "title": "AUTH-431: SSO Group Mapping Failure",
+    "content": "AUTH-431 occurs after enabling SSO when the identity provider sends group names with different letter casing than the configured application mappings. Enable case-insensitive group matching or normalize the IdP group claim, then refresh the user's session.",
+    "product": "authentication",
+    "version": "4.2",
+    "published_at": "2026-08-01T00:00:00Z",
+    "document_type": "incident",
+    "tags": ["AUTH-431", "sso", "group-mapping", "troubleshooting"]
+  },
+  {
+    "id": "auth-502",
+    "title": "AUTH-502: OAuth Clock Skew",
+    "content": "AUTH-502 occurs after OAuth login when a node clock differs from the identity provider by more than 60 seconds. Synchronize the application nodes with NTP and retry after existing tokens expire.",
+    "product": "authentication",
+    "version": "4.2",
+    "published_at": "2026-08-12T00:00:00Z",
+    "document_type": "incident",
+    "tags": ["AUTH-502", "oauth", "clock-skew", "troubleshooting"]
+  },
+  {
+    "id": "refund-policy-2024",
+    "title": "Refund Policy (Archived 2024)",
+    "content": "Customers may request a full refund within 30 days. Annual plans are refundable after cancellation by contacting support. This policy was superseded on January 1, 2026.",
+    "product": "billing",
+    "version": "2024",
+    "published_at": "2024-01-01T00:00:00Z",
+    "document_type": "policy",
+    "tags": ["refund", "billing", "archived"]
+  },
+  {
+    "id": "refund-policy-2026",
+    "title": "Current Refund Policy (Effective 2026)",
+    "content": "The current policy provides a full refund within 14 days of the initial purchase. Renewals and consumed usage are not refundable. Enterprise exceptions require billing-team approval.",
+    "product": "billing",
+    "version": "2026",
+    "published_at": "2026-01-01T00:00:00Z",
+    "document_type": "policy",
+    "tags": ["refund", "billing", "current"]
+  },
+  {
+    "id": "renderer-41",
+    "title": "Renderer 4.1 Release Notes",
+    "content": "Renderer 4.1 introduced partial GPU batching and retained legacy font fallback. Known issue: large SVG assets can exceed the render timeout.",
+    "product": "renderer",
+    "version": "4.1",
+    "published_at": "2025-03-01T00:00:00Z",
+    "document_type": "release-notes",
+    "tags": ["renderer", "release"]
+  },
+  {
+    "id": "renderer-42",
+    "title": "Renderer 4.2 Release Notes",
+    "content": "Renderer 4.2 added adaptive GPU batching, a new font fallback engine, and streaming SVG parsing. It removes the large-asset timeout documented in 4.1.",
+    "product": "renderer",
+    "version": "4.2",
+    "published_at": "2026-07-01T00:00:00Z",
+    "document_type": "release-notes",
+    "tags": ["renderer", "release", "current"]
+  },
+  {
+    "id": "incident-101",
+    "title": "Incident 101: Checkout Latency",
+    "content": "Checkout latency increased when the tax service exhausted its connection pool. Increasing the pool masked the issue; bounded retries and circuit breaking resolved it.",
+    "product": "checkout",
+    "version": "3.8",
+    "published_at": "2026-04-10T00:00:00Z",
+    "document_type": "incident",
+    "tags": ["checkout", "latency"]
+  },
+  {
+    "id": "incident-102",
+    "title": "Incident 102: Duplicate Checkout",
+    "content": "Duplicate orders were caused by clients retrying after a gateway timeout without an idempotency key. Require an idempotency key for every checkout creation request.",
+    "product": "checkout",
+    "version": "3.8",
+    "published_at": "2026-04-22T00:00:00Z",
+    "document_type": "incident",
+    "tags": ["checkout", "idempotency"]
+  }
+]
