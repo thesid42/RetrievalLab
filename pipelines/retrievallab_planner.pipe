@@ -1,0 +1,176 @@
+{
+  "components": [
+    {
+      "id": "webhook_1",
+      "provider": "webhook",
+      "name": "Webhook",
+      "config": {
+        "hideForm": true,
+        "mode": "Source",
+        "parameters": {},
+        "type": "webhook"
+      },
+      "ui": {
+        "position": {
+          "x": 20,
+          "y": 200
+        },
+        "measured": {
+          "width": 150,
+          "height": 174
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "parse_1",
+      "provider": "parse",
+      "name": "Parser",
+      "config": {},
+      "ui": {
+        "position": {
+          "x": 240,
+          "y": 200
+        },
+        "measured": {
+          "width": 150,
+          "height": 138
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "tags",
+          "from": "webhook_1"
+        }
+      ]
+    },
+    {
+      "id": "question_1",
+      "provider": "question",
+      "name": "Question",
+      "config": {
+        "type": "question"
+      },
+      "ui": {
+        "position": {
+          "x": 460,
+          "y": 200
+        },
+        "measured": {
+          "width": 150,
+          "height": 68
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "text",
+          "from": "parse_1"
+        }
+      ]
+    },
+    {
+      "id": "prompt_1",
+      "provider": "prompt",
+      "name": "Prompt",
+      "config": {
+        "instructions": [
+          "You are RetrievalLab's retrieval-strategy planner.",
+          "The user message is JSON from RetrievalLab with fields such as operation, query, profile, diagnosis, registered_tools, and optionally play.",
+          "If operation is plan: reply with ONLY compact JSON of the form {\"strategies\":[...]} using a non-empty subset of registered_tools, preserving order by usefulness for the diagnosis. Never invent tool names.",
+          "If operation is execute_play: reply with ONLY compact JSON {\"acknowledged\":true,\"operation\":\"execute_play\"}.",
+          "No markdown fences, no commentary, JSON only."
+        ],
+        "parameters": {}
+      },
+      "ui": {
+        "position": {
+          "x": 680,
+          "y": 200
+        },
+        "measured": {
+          "width": 150,
+          "height": 121
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "questions",
+          "from": "question_1"
+        }
+      ]
+    },
+    {
+      "id": "llm_openai_1",
+      "provider": "llm_openai",
+      "name": "OpenAI",
+      "config": {
+        "profile": "openai-5-mini",
+        "openai-5-2": {},
+        "openai-5-mini": {
+          "apikey": "${ROCKETRIDE_OPENAI_KEY}"
+        },
+        "parameters": {}
+      },
+      "ui": {
+        "position": {
+          "x": 900,
+          "y": 200
+        },
+        "measured": {
+          "width": 150,
+          "height": 68
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "questions",
+          "from": "prompt_1"
+        }
+      ]
+    },
+    {
+      "id": "response_answers_1",
+      "provider": "response_answers",
+      "name": "Return Answers",
+      "config": {
+        "laneName": "answers"
+      },
+      "ui": {
+        "position": {
+          "x": 1120,
+          "y": 200
+        },
+        "measured": {
+          "width": 150,
+          "height": 68
+        },
+        "nodeType": "default",
+        "formDataValid": true
+      },
+      "input": [
+        {
+          "lane": "answers",
+          "from": "llm_openai_1"
+        }
+      ]
+    }
+  ],
+  "project_id": "8c53677d-5049-4ac7-a8ee-c22bf3c992f6",
+  "version": 1,
+  "isLocked": false,
+  "snapToGrid": true,
+  "snapGridSize": [
+    10,
+    10
+  ],
+  "docRevision": 1
+}
