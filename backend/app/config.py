@@ -35,20 +35,24 @@ class Settings(BaseSettings):
     cognee_auth_mode: Literal["api_key", "bearer"] = "api_key"
     cognee_dataset: str = "retrievallab"
     hydradb_api_url: str = provider_field(
-        "hydradb_api_url", "HYDRADB_API_URL", default="https://api.hydradb.com"
+        "hydradb_api_url", "HYDRADB_API_URL", "HYDRADB_BASE_URL", default="https://api.hydradb.com"
     )
     hydradb_api_key: str | None = provider_field(
         "hydradb_api_key", "HYDRA_DB_API_KEY", "HYDRADB_API_KEY", secret=True
     )
-    hydradb_tenant_id: str | None = provider_field("hydradb_tenant_id", "HYDRADB_TENANT_ID")
+    hydradb_tenant_id: str | None = provider_field(
+        "hydradb_tenant_id", "HYDRADB_DATABASE", "HYDRADB_TENANT_ID"
+    )
     hydradb_sub_tenant_id: str | None = provider_field(
-        "hydradb_sub_tenant_id", "HYDRADB_SUB_TENANT_ID"
+        "hydradb_sub_tenant_id", "HYDRADB_COLLECTION", "HYDRADB_SUB_TENANT_ID"
     )
     hotdata_api_url: str = provider_field(
         "hotdata_api_url", "HOTDATA_API_URL", default="https://api.hotdata.dev"
     )
     hotdata_api_key: str | None = provider_field("hotdata_api_key", "HOTDATA_API_KEY", secret=True)
-    hotdata_workspace_id: str | None = provider_field("hotdata_workspace_id", "HOTDATA_WORKSPACE_ID")
+    hotdata_workspace_id: str | None = provider_field(
+        "hotdata_workspace_id", "HOTDATA_WORKSPACE_ID"
+    )
     hotdata_database_id: str | None = provider_field("hotdata_database_id", "HOTDATA_DATABASE_ID")
     hotdata_table: str = "default.main.retrieval_documents"
     hotdata_telemetry_table: str | None = None
@@ -61,6 +65,8 @@ class Settings(BaseSettings):
     rocketride_pipeline_path: Path | None = None
     rocketride_source_id: str | None = None
     rote_cli_path: str = "rote"
+    rote_wsl_distribution: str | None = None
+    rote_python_path: str | None = None
     rote_play_ref: str | None = None
     rote_timeout_seconds: float = 30.0
 
@@ -87,10 +93,20 @@ class Settings(BaseSettings):
         return path if path.is_absolute() else PROJECT_ROOT / path
 
     @field_validator(
-        "api_access_key", "cognee_api_url", "cognee_api_key", "hydradb_api_key",
-        "hydradb_tenant_id", "hydradb_sub_tenant_id", "hotdata_api_key",
-        "hotdata_workspace_id", "hotdata_database_id", "hotdata_telemetry_table",
-        "rocketride_api_key", "rocketride_source_id", "rote_play_ref", mode="before",
+        "api_access_key",
+        "cognee_api_url",
+        "cognee_api_key",
+        "hydradb_api_key",
+        "hydradb_tenant_id",
+        "hydradb_sub_tenant_id",
+        "hotdata_api_key",
+        "hotdata_workspace_id",
+        "hotdata_database_id",
+        "hotdata_telemetry_table",
+        "rocketride_api_key",
+        "rocketride_source_id",
+        "rote_play_ref",
+        mode="before",
     )
     @classmethod
     def blank_key_is_missing(cls, value: str | None) -> str | None:
@@ -106,7 +122,11 @@ class Settings(BaseSettings):
             return None
         value = value.strip().rstrip("/")
         parsed = urlsplit(value)
-        schemes = {"http", "https", "ws", "wss"} if info.field_name == "rocketride_uri" else {"http", "https"}
+        schemes = (
+            {"http", "https", "ws", "wss"}
+            if info.field_name == "rocketride_uri"
+            else {"http", "https"}
+        )
         if (
             parsed.scheme not in schemes
             or not parsed.hostname
@@ -115,9 +135,17 @@ class Settings(BaseSettings):
             or parsed.query
             or parsed.fragment
         ):
-            raise ValueError("provider URL must use a supported scheme without credentials/query/fragment")
-        if parsed.scheme in {"http", "ws"} and parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
-            raise ValueError("remote provider URLs require HTTPS; HTTP is allowed only for loopback")
+            raise ValueError(
+                "provider URL must use a supported scheme without credentials/query/fragment"
+            )
+        if parsed.scheme in {"http", "ws"} and parsed.hostname not in {
+            "localhost",
+            "127.0.0.1",
+            "::1",
+        }:
+            raise ValueError(
+                "remote provider URLs require HTTPS; HTTP is allowed only for loopback"
+            )
         return value
 
     @field_validator("request_timeout_seconds", "rote_timeout_seconds")

@@ -1,8 +1,7 @@
 """Native HydraDB memory adapter.
 
-This adapter uses the current HydraDB REST contract (not the historical
-Cypher-shaped bridge): ``POST /memories/add_memory`` for ingestion and
-``POST /recall/recall_preferences`` for recall.  Hydra's add endpoint queues
+This adapter uses HydraDB API v2: multipart ``POST /context/ingest`` for
+ingestion and JSON ``POST /query`` for recall. Hydra's ingest endpoint queues
 processing, so a successful write is reported as submitted rather than as an
 already queryable memory.
 """
@@ -57,7 +56,9 @@ class NativeHTTP:
         normalized = base_url.strip().rstrip("/") if isinstance(base_url, str) else ""
         self.base_url = normalized or None
         self.api_key = api_key.strip() if isinstance(api_key, str) and api_key.strip() else None
-        self.tenant_id = tenant_id.strip() if isinstance(tenant_id, str) and tenant_id.strip() else None
+        self.tenant_id = (
+            tenant_id.strip() if isinstance(tenant_id, str) and tenant_id.strip() else None
+        )
         self.sub_tenant_id = (
             sub_tenant_id.strip()
             if isinstance(sub_tenant_id, str) and sub_tenant_id.strip()
@@ -77,15 +78,19 @@ class NativeHTTP:
             "Accept": "application/json",
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
+            "API-Version": "2",
         }
 
     def _scope(self) -> dict[str, str]:
-        payload = {"tenant_id": self.tenant_id or ""}
+        # Keep existing environment names compatible; v2 renamed the scope.
+        payload = {"database": self.tenant_id or ""}
         if self.sub_tenant_id:
-            payload["sub_tenant_id"] = self.sub_tenant_id
+            payload["collection"] = self.sub_tenant_id
         return payload
 
-    async def post(self, path: str, payload: dict[str, Any]) -> NativeHTTPResult:
+    async def post(
+        self, path: str, payload: dict[str, Any], *, multipart: bool = False
+    ) -> NativeHTTPResult:
         if not self.configured:
             return NativeHTTPResult(
                 False,
@@ -93,14 +98,21 @@ class NativeHTTP:
                 "HydraDB endpoint, API key, and tenant_id are required; local fallback used.",
             )
         if not isinstance(payload, dict):
-            return NativeHTTPResult(False, False, "Invalid HydraDB request payload; local fallback used.")
+            return NativeHTTPResult(
+                False, False, "Invalid HydraDB request payload; local fallback used."
+            )
         kwargs: dict[str, Any] = {"timeout": self.timeout}
         if self.transport is not None:
             kwargs["transport"] = self.transport
+        headers = self._headers()
+        request_body: dict[str, Any] = {"json": payload}
+        if multipart:
+            headers.pop("Content-Type")
+            request_body = {"files": [(key, (None, str(value))) for key, value in payload.items()]}
         try:
             async with httpx.AsyncClient(**kwargs) as client:
                 response = await client.post(
-                    f"{self.base_url}{path}", json=payload, headers=self._headers()
+                    f"{self.base_url}{path}", headers=headers, **request_body
                 )
                 status_code = response.status_code
                 if not response.is_success:
@@ -131,6 +143,15 @@ class NativeHTTP:
                 "HydraDB returned a JSON value instead of an object; local fallback used.",
                 status_code=status_code,
             )
+        if "data" in data and {"success", "meta", "error"}.intersection(data):
+            if data.get("success") is not True or not isinstance(data["data"], dict):
+                return NativeHTTPResult(
+                    False,
+                    True,
+                    "HydraDB returned an unsuccessful or invalid v2 envelope; local fallback used.",
+                    status_code=status_code,
+                )
+            data = {**data["data"], "success": True}
         return NativeHTTPResult(True, True, "HydraDB returned a valid response.", data, status_code)
 
 
@@ -232,12 +253,7 @@ def _memory_item(memory: dict[str, Any]) -> dict[str, Any]:
         "infer": False,
         "source_id": memory["memory_id"],
         "title": f"RetrievalLab memory {memory['memory_id']}",
-        "metadata": {
-            "retrievallab_memory_id": memory["memory_id"],
-            "query_pattern": memory["query_pattern"],
-            "corpus_version": memory.get("corpus_version"),
-        },
-        "additional_metadata": {"source": "retrievallab"},
+        "is_markdown": False,
     }
 
 
@@ -254,19 +270,14 @@ def _queued_success(data: dict[str, Any] | None, memory_id: str) -> bool:
     results = data.get("results")
     if not isinstance(results, list):
         return False
-    if (
-        success_count is not None
-        and (
-            isinstance(success_count, bool)
-            or not isinstance(success_count, int)
-            or success_count <= 0
-        )
+    if success_count is not None and (
+        isinstance(success_count, bool) or not isinstance(success_count, int) or success_count <= 0
     ):
         return False
     for result in results:
         if not isinstance(result, dict):
             continue
-        if result.get("source_id") == memory_id and result.get("status") in {
+        if result.get("source_id", result.get("id")) == memory_id and result.get("status") in {
             "queued",
             "processing",
             "completed",
@@ -317,7 +328,11 @@ def _remote_memory(
     source_id = chunk.get("source_id")
     if source_id is not None and source_id != candidate["memory_id"]:
         return None
-    if expected_corpus and expected_corpus != "unknown" and candidate.get("corpus_version") != expected_corpus:
+    if (
+        expected_corpus
+        and expected_corpus != "unknown"
+        and candidate.get("corpus_version") != expected_corpus
+    ):
         return None
     similarity = chunk.get("relevancy_score", chunk.get("similarity", chunk.get("score")))
     if (
@@ -363,7 +378,9 @@ class HydraMemoryGraph:
             threshold = float(configured_threshold)
         except (TypeError, ValueError):
             threshold = 0.58
-        self.similarity_threshold = threshold if math.isfinite(threshold) and 0 <= threshold <= 1 else 0.58
+        self.similarity_threshold = (
+            threshold if math.isfinite(threshold) and 0 <= threshold <= 1 else 0.58
+        )
         base_url = _setting(
             settings,
             "hydradb_api_url",
@@ -384,7 +401,9 @@ class HydraMemoryGraph:
         except (TypeError, ValueError):
             return None
 
-    async def find_play(self, profile: QueryProfile) -> tuple[MemoryMatch | None, IntegrationStatus]:
+    async def find_play(
+        self, profile: QueryProfile
+    ) -> tuple[MemoryMatch | None, IntegrationStatus]:
         local = self._local(profile)
         if not self.remote.configured:
             return local, _status(
@@ -393,11 +412,13 @@ class HydraMemoryGraph:
                 "HydraDB is not fully configured; local SQLite memory mirror used.",
             )
         remote = await self.remote.post(
-            "/recall/recall_preferences",
+            "/query",
             {
                 **self.remote._scope(),
                 "query": profile.signature,
                 "mode": "thinking",
+                "type": "memory",
+                "max_results": 10,
             },
         )
         if not remote.ok:
@@ -418,7 +439,9 @@ class HydraMemoryGraph:
             match
             for chunk in chunks[:128]
             if isinstance(chunk, dict)
-            for match in [_remote_memory(chunk, profile, self.similarity_threshold, expected_corpus)]
+            for match in [
+                _remote_memory(chunk, profile, self.similarity_threshold, expected_corpus)
+            ]
             if match is not None
         ]
         if candidates:
@@ -468,12 +491,14 @@ class HydraMemoryGraph:
                 role="durable graph write",
             )
         remote = await self.remote.post(
-            "/memories/add_memory",
+            "/context/ingest",
             {
                 **self.remote._scope(),
-                "memories": [_memory_item(memory)],
-                "upsert": True,
+                "type": "memory",
+                "memories": json.dumps([_memory_item(memory)]),
+                "upsert": "true",
             },
+            multipart=True,
         )
         if not remote.ok:
             return _status(

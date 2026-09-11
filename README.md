@@ -31,8 +31,14 @@ provider modes and recorded metrics. Sample UI data is available only through ex
 `VITE_DEMO_MODE=true`.
 
 Native provider adapters replace the old custom bridge contracts. Missing credentials use
-explicit local fallbacks. Account/data setup, reviewed RocketRide/Rote workflows, and live
-end-to-end verification remain open; see [INTEGRATIONS.md](INTEGRATIONS.md).
+explicit local fallbacks. On September 11, live Hotdata retrieval, Cognee graph construction
+and search, HydraDB ingestion/recall, RocketRide planning/dispatch, and a saved local Rote
+Play were verified. The complete AUTH-431 API replay consumed Rote's real Hotdata evidence
+without duplicate retrieval. It took 53.4 seconds; an earlier replay fell back, so reliability
+and latency remain follow-up work. See [HANDOFF.md](HANDOFF.md) for exact evidence and limits.
+
+The [RocketRide planner](pipelines/README.md) and [local retrieval Play](plays/README.md)
+are included. Rote release is local only, not registry publication. Snyk was explicitly skipped.
 
 ## Start from the installed environment
 

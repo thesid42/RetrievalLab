@@ -2,8 +2,10 @@ import type { DashboardData, RetrievalRun } from "./types";
 
 const examples = [
   "Why does AUTH-431 happen after enabling SSO?",
-  "Why does AUTH-502 happen after login?",
+  "Why does AUTH-502 happen after OAuth login?",
   "What is the current refund policy?",
+  "What changed in Renderer 4.2?",
+  "Why are duplicate checkout orders created?",
 ];
 
 export const exampleQueries = examples;

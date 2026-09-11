@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Activity, ArrowRight, BrainCircuit, Check, ChevronRight, CircleDot,
+  Activity, ArrowRight, BrainCircuit, Check, CircleDot,
   Clock3, Database, Gauge, GitBranch, KeyRound, Layers3, Play, RotateCcw, Search,
   ShieldCheck, Sparkles, Zap,
 } from "lucide-react";
@@ -118,10 +118,17 @@ function SearchHero({ query, setQuery, onRun, loading }: { query: string; setQue
         </button>
       </form>
       <div className="examples">
-        <span>TRY AN EXAMPLE</span>
-        {exampleQueries.map((example, i) => (
-          <button key={example} onClick={() => setQuery(example)}><b>0{i + 1}</b>{example}<ChevronRight size={13} /></button>
-        ))}
+        <label htmlFor="example-query">TRY AN EXAMPLE</label>
+        <select
+          id="example-query"
+          value={exampleQueries.includes(query) ? query : ""}
+          onChange={(event) => { if (event.target.value) setQuery(event.target.value); }}
+          aria-describedby="example-query-help"
+        >
+          <option value="" disabled>Choose an example query…</option>
+          {exampleQueries.map((example) => <option key={example} value={example}>{example}</option>)}
+        </select>
+        <small id="example-query-help">Choose an example, then select Run query. Selecting an example does not run it.</small>
       </div>
     </section>
   );

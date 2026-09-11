@@ -5,6 +5,23 @@ agents covering retrieval/state, bridge contracts, and UI/build correctness.
 
 ## Architecture verdict
 
+Current live status supersedes the historical merge results below: Hotdata, Cognee,
+HydraDB and native Rote retrieval now pass live checks; full AUTH-431 app replay
+`27c60b47-9ec3-4f43-a1c9-23ebd6c94d73` passed with native RocketRide dispatch, Rote
+evidence consumption and remote HydraDB recall. Rote Play is locally released, not
+published. Remaining P1: intermittent provider/SDK replay fallbacks and 53-second latency.
+Snyk is explicitly skipped. See the top of `HANDOFF.md` for evidence and remaining work.
+
+Historical merge checkpoint:
+
+Latest merge/test update: Anmol's RocketRide pipeline commit `debc996` is merged.
+The stricter checker and 15 new offline cases bring the backend suite to **67
+passing tests**. Rote captured a real live planner response, but the subsequent
+`execute_play` acknowledgement check failed (exit 1); cleanup succeeded. Treat
+replay output/decoder diagnosis as the remaining P1 integration issue, not a
+completed native replay. Details and evidence IDs: `pipelines/README.md` and the
+latest `HANDOFF.md` section. No agent executor was used in this merge/test pass.
+
 Keep the two-scenario MVP: exact identifiers and current policy evidence. FastAPI plus
 Vite/React is the implemented stack; the original document's Next.js diagram is a proposal.
 The five sponsor responsibilities remain appropriate. The follow-up integration pass

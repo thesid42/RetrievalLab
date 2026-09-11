@@ -83,12 +83,17 @@ class NativeHTTP:
         *,
         json_payload: dict[str, Any] | None = None,
         form_payload: dict[str, str] | None = None,
+        file_payload: dict[str, tuple[str, bytes, str]] | None = None,
         allow_list: bool = False,
     ) -> NativeHTTPResult:
         if not self.base_url:
-            return NativeHTTPResult(False, False, "No Cognee endpoint configured; local fallback used.")
+            return NativeHTTPResult(
+                False, False, "No Cognee endpoint configured; local fallback used."
+            )
         if (json_payload is None) == (form_payload is None):
-            return NativeHTTPResult(False, False, "Invalid Cognee request payload; local fallback used.")
+            return NativeHTTPResult(
+                False, False, "Invalid Cognee request payload; local fallback used."
+            )
 
         kwargs: dict[str, Any] = {"timeout": self.timeout}
         if self.transport is not None:
@@ -102,6 +107,7 @@ class NativeHTTP:
                     request_kwargs["files"] = [
                         (key, (None, value)) for key, value in form_payload.items()
                     ]
+                    request_kwargs["files"].extend((file_payload or {}).items())
                 else:
                     request_kwargs["json"] = json_payload
                 response = await client.post(f"{self.base_url}{path}", **request_kwargs)
@@ -134,10 +140,19 @@ class NativeHTTP:
                 "Cognee returned a JSON value instead of an object; local fallback used.",
                 status_code=status_code,
             )
-        return NativeHTTPResult(True, True, "Cognee returned a valid response.", payload, status_code)
+        return NativeHTTPResult(
+            True, True, "Cognee returned a valid response.", payload, status_code
+        )
 
     async def post_form(self, path: str, payload: dict[str, str]) -> NativeHTTPResult:
         return await self._request(path, form_payload=payload)
+
+    async def add_document(self, text: str, dataset: str) -> NativeHTTPResult:
+        return await self._request(
+            "/api/v1/add",
+            form_payload={"datasetName": dataset},
+            file_payload={"data": ("retrievallab-memory.txt", text.encode("utf-8"), "text/plain")},
+        )
 
     async def post_json(
         self, path: str, payload: dict[str, Any], *, allow_list: bool = False
@@ -319,7 +334,9 @@ class CogneeMemoryConstructor:
         auth_mode = _setting(settings, "cognee_auth_mode", default="api_key")
         timeout = _setting(settings, "request_timeout_seconds", default=12.0)
         dataset = _setting(settings, "cognee_dataset", default="retrievallab")
-        self.dataset = dataset.strip() if isinstance(dataset, str) and dataset.strip() else "retrievallab"
+        self.dataset = (
+            dataset.strip() if isinstance(dataset, str) and dataset.strip() else "retrievallab"
+        )
         self.remote = NativeHTTP(
             base_url,
             api_key,
@@ -382,14 +399,7 @@ class CogneeMemoryConstructor:
         # made-up JSON memory construction route.  Store the canonical object as
         # text so a later search can prove the remote graph contains this identity.
         raw_memory = json.dumps(memory, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        add = await self.remote.post_form(
-            "/api/v1/add",
-            {
-                "raw_data": raw_memory,
-                "datasetName": self.dataset,
-                "run_in_background": "false",
-            },
-        )
+        add = await self.remote.add_document(raw_memory, self.dataset)
         if not add.ok:
             return memory, _status(mode="local-fallback", called=add.attempted, detail=add.detail)
         if not _valid_add_response(add.data):
@@ -401,7 +411,12 @@ class CogneeMemoryConstructor:
 
         cognify = await self.remote.post_json(
             "/api/v1/cognify",
-            {"datasets": [self.dataset], "run_in_background": False},
+            {
+                "datasets": [self.dataset],
+                (
+                    "runInBackground" if self.remote.auth_mode == "api_key" else "run_in_background"
+                ): False,
+            },
         )
         if (
             not cognify.ok
@@ -413,8 +428,7 @@ class CogneeMemoryConstructor:
                 called=True,
                 detail=(
                     "Cognee accepted /add, but /cognify did not complete; data is submitted "
-                    "and remote queryability is unconfirmed. "
-                    + cognify.detail
+                    "and remote queryability is unconfirmed. " + cognify.detail
                 ),
             )
 
@@ -426,9 +440,9 @@ class CogneeMemoryConstructor:
             "/api/v1/search",
             {
                 "query": profile.signature,
-                "search_type": "CHUNKS",
+                ("searchType" if self.remote.auth_mode == "api_key" else "search_type"): "CHUNKS",
                 "datasets": [self.dataset],
-                "top_k": 5,
+                ("topK" if self.remote.auth_mode == "api_key" else "top_k"): 5,
             },
             allow_list=True,
         )

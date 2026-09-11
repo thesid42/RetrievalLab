@@ -82,6 +82,8 @@ def test_native_query_posts_documented_path_headers_and_rows(tmp_path: Path) -> 
     body = json.loads(request.content)
     assert body.keys() == {"sql"}
     assert 'FROM "default"."main"."retrieval_documents"' in body["sql"]
+    assert 'CAST("version" AS VARCHAR) AS "version"' in body["sql"]
+    assert 'AT TIME ZONE \'UTC\'' in body["sql"]
     assert "LIMIT 15" in body["sql"]
 
 

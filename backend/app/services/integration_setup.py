@@ -26,7 +26,7 @@ def integration_readiness(settings: Settings) -> list[dict]:
     add("Cognee", ("cognee_api_url", "cognee_api_key"),
         "Use the tenant Connection Details URL, not the dashboard. Cloud: X-Api-Key; self-host: bearer.")
     add("HydraDB", ("hydradb_api_key", "hydradb_tenant_id"),
-        "Shared API host is supplied. Tenant infrastructure and memory readiness need verification.")
+        "API v2 host is supplied. Tenant ID maps to database; verify database and memory readiness.")
     rocket_prerequisites = []
     if find_spec("rocketride") is None:
         rocket_prerequisites.append("RocketRide Python SDK (install backend[native])")
@@ -36,7 +36,12 @@ def integration_readiness(settings: Settings) -> list[dict]:
         "Supply a reviewed pipeline and its input source ID. Configuration is not execution.",
         rocket_prerequisites)
     rote_prerequisites = []
-    if not which(settings.rote_cli_path):
+    if settings.rote_wsl_distribution:
+        # The Linux CLI path cannot be resolved on the Windows host. This
+        # offline check verifies only the launcher, not WSL login or execution.
+        if not which("wsl.exe"):
+            rote_prerequisites.append("Installed Windows WSL launcher")
+    elif not which(settings.rote_cli_path):
         rote_prerequisites.append("Installed Rote CLI")
     add("Rote", ("rote_play_ref",),
         "Complete setup/login and review a Play; local strategy records are not native capture.",

@@ -72,7 +72,9 @@ def _quote_identifier(identifier: str) -> str:
     """Quote one SQL identifier after validating its shape."""
 
     if not isinstance(identifier, str) or not _IDENTIFIER.fullmatch(identifier):
-        raise ValueError("Hotdata SQL identifiers must contain only letters, digits, and underscores")
+        raise ValueError(
+            "Hotdata SQL identifiers must contain only letters, digits, and underscores"
+        )
     return f'"{identifier}"'
 
 
@@ -132,7 +134,8 @@ def _candidate_terms(profile: QueryProfile) -> list[str]:
     # Manually constructed profiles are useful in tests and integrations. Keep
     # their terms only when redaction leaves each value unchanged.
     values.extend(
-        value for value in [*profile.exact_identifiers, *profile.terms]
+        value
+        for value in [*profile.exact_identifiers, *profile.terms]
         if isinstance(value, str) and _safe_candidate_term(value)
     )
     terms: list[str] = []
@@ -156,7 +159,12 @@ def _candidate_terms(profile: QueryProfile) -> list[str]:
 def _safe_candidate_term(value: str) -> bool:
     """Reject credential-shaped literals even if a caller built a profile manually."""
 
-    return bool(value.strip()) and "@" not in value and not _SENSITIVE_TERM.fullmatch(value.strip()) and redact_sensitive(value) == value
+    return (
+        bool(value.strip())
+        and "@" not in value
+        and not _SENSITIVE_TERM.fullmatch(value.strip())
+        and redact_sensitive(value) == value
+    )
 
 
 def build_candidate_sql(profile: QueryProfile, table: str, limit: int) -> str:
@@ -167,10 +175,23 @@ def build_candidate_sql(profile: QueryProfile, table: str, limit: int) -> str:
     requested strategy is applied locally to the returned rows.
     """
 
-    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_REMOTE_RESULTS:
+    if (
+        isinstance(limit, bool)
+        or not isinstance(limit, int)
+        or not 1 <= limit <= MAX_REMOTE_RESULTS
+    ):
         raise ValueError(f"candidate limit must be between 1 and {MAX_REMOTE_RESULTS}")
     quoted_table = _qualified_identifier(table)
-    fields = ", ".join(_quote_identifier(field) for field in _DOCUMENT_COLUMNS)
+    # CSV inference makes version numeric and strips UTC from timestamps.
+    # The corpus importer writes UTC; explicitly restore its timezone in SQL.
+    fields = ", ".join(
+        'CAST("version" AS VARCHAR) AS "version"'
+        if field == "version"
+        else '("published_at"::TIMESTAMP AT TIME ZONE \'UTC\') AS "published_at"'
+        if field == "published_at"
+        else _quote_identifier(field)
+        for field in _DOCUMENT_COLUMNS
+    )
     terms = _candidate_terms(profile)
     searchable = [
         '"id"',
@@ -209,7 +230,11 @@ def _documents_from_query(data: Any) -> list[Document] | None:
         # A preview is not a complete candidate set. We do not claim retrieval
         # success when the result requires a second, unimplemented Results API call.
         return None
-    if not isinstance(columns, list) or not columns or not all(isinstance(item, str) for item in columns):
+    if (
+        not isinstance(columns, list)
+        or not columns
+        or not all(isinstance(item, str) for item in columns)
+    ):
         return None
     normalized_columns = [column.strip().lower() for column in columns]
     if any(not column or normalized_columns.count(column) > 1 for column in normalized_columns):
@@ -258,7 +283,9 @@ def _documents_from_query(data: Any) -> list[Document] | None:
                 return None
             mapped["tags"] = parsed_tags
         try:
-            document = Document.model_validate({field: mapped[field] for field in _DOCUMENT_COLUMNS})
+            document = Document.model_validate(
+                {field: mapped[field] for field in _DOCUMENT_COLUMNS}
+            )
         except (TypeError, ValueError):
             return None
         if document.id in seen_ids:
@@ -301,12 +328,18 @@ def _rank_remote_documents(
         for term in query_terms:
             frequency = counts[term]
             containing = sum(term in tokens[item.id] for item in documents)
-            inverse_frequency = math.log(1 + (len(documents) - containing + 0.5) / (containing + 0.5))
-            denominator = frequency + 1.5 * (1 - 0.75 + 0.75 * len(document_tokens) / average_length)
+            inverse_frequency = math.log(
+                1 + (len(documents) - containing + 0.5) / (containing + 0.5)
+            )
+            denominator = frequency + 1.5 * (
+                1 - 0.75 + 0.75 * len(document_tokens) / average_length
+            )
             score += inverse_frequency * (frequency * 2.5 / denominator if denominator else 0)
         lexical_raw[document.id] = score
     lexical_max = max(lexical_raw.values(), default=1.0)
-    lexical = {key: value / lexical_max if lexical_max else 0.0 for key, value in lexical_raw.items()}
+    lexical = {
+        key: value / lexical_max if lexical_max else 0.0 for key, value in lexical_raw.items()
+    }
 
     newest = max(document.published_at for document in documents)
     scored: list[tuple[Document, float, list[str]]] = []
@@ -328,7 +361,8 @@ def _rank_remote_documents(
             reasons.append("freshness boost over Hotdata candidates")
         elif strategy is StrategyName.HYBRID_RERANK:
             identifier_hit = any(
-                identifier.lower() in tokens[document.id] for identifier in profile.exact_identifiers
+                identifier.lower() in tokens[document.id]
+                for identifier in profile.exact_identifiers
             )
             score += 0.20 if identifier_hit else 0
             score += 0.12 * freshness if profile.current_intent else 0
@@ -435,15 +469,27 @@ class HotdataNativeClient:
         """Validate the documented synchronous or submitted load response."""
 
         if not isinstance(data, dict):
-            return False, "Hotdata load returned no documented acknowledgement; telemetry remains local."
+            return (
+                False,
+                "Hotdata load returned no documented acknowledgement; telemetry remains local.",
+            )
         if status_code == 200:
-            required = {"arrow_schema_json", "connection_id", "row_count", "schema_name", "table_name"}
+            required = {
+                "arrow_schema_json",
+                "connection_id",
+                "row_count",
+                "schema_name",
+                "table_name",
+            }
             row_count = data.get("row_count")
             valid = (
                 required.issubset(data)
                 and isinstance(data["arrow_schema_json"], str)
                 and bool(data["arrow_schema_json"].strip())
-                and all(isinstance(data[key], str) and data[key].strip() for key in ("connection_id", "schema_name", "table_name"))
+                and all(
+                    isinstance(data[key], str) and data[key].strip()
+                    for key in ("connection_id", "schema_name", "table_name")
+                )
                 and isinstance(row_count, int)
                 and not isinstance(row_count, bool)
                 and row_count >= 0
@@ -459,7 +505,9 @@ class HotdataNativeClient:
             valid = (
                 required.issubset(data)
                 and all(isinstance(data[key], str) and data[key].strip() for key in required)
-                and (data["status_url"].startswith("/") or data["status_url"].startswith("https://"))
+                and (
+                    data["status_url"].startswith("/") or data["status_url"].startswith("https://")
+                )
             )
             return (
                 valid,
@@ -467,7 +515,10 @@ class HotdataNativeClient:
                 if valid
                 else "Hotdata load response was missing its submitted-job acknowledgement; telemetry remains local.",
             )
-        return False, "Hotdata load returned an unsupported success status; telemetry remains local."
+        return (
+            False,
+            "Hotdata load returned an unsupported success status; telemetry remains local.",
+        )
 
     async def load_csv(
         self,
@@ -581,7 +632,9 @@ def _status(
         return IntegrationStatus(
             name="hotdata.dev",
             role=role,
-            mode="remote+local-ranking" if role == "SQL candidate retrieval" else remote.remote_mode,
+            mode="remote+local-ranking"
+            if role == "SQL candidate retrieval"
+            else remote.remote_mode,
             called=True,
             detail=accepted_detail,
         )
@@ -631,7 +684,9 @@ class HotdataQueryEngine:
         if isinstance(top_k, bool) or not isinstance(top_k, int) or not 1 <= top_k <= MAX_TOP_K:
             raise ValueError(f"top_k must be an integer between 1 and {MAX_TOP_K}")
         try:
-            normalized_strategy = strategy if isinstance(strategy, StrategyName) else StrategyName(strategy)
+            normalized_strategy = (
+                strategy if isinstance(strategy, StrategyName) else StrategyName(strategy)
+            )
         except (TypeError, ValueError) as error:
             raise ValueError("strategy must be a supported StrategyName") from error
         started = perf_counter()

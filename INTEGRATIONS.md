@@ -1,9 +1,12 @@
 # Native integration setup
 
 Updated September 11, 2026. The invented HTTP bridge contracts have been removed.
-Native adapters and offline contract checks are implemented; no live sponsor account has
-been authenticated or verified. All credentials stay in `backend/.env` or backend process
-environment variables. Never put them in `web/.env`, commit them, or paste them into logs.
+Native adapters have now passed live Hotdata retrieval, Cognee add/cognify/search,
+HydraDB v2 ingestion/recall, RocketRide planning/dispatch, and local Rote Play execution.
+The full AUTH-431 replay passed; earlier intermittent fallbacks and latency remain open.
+See the top of `HANDOFF.md` for the evidence and exact limits. Credentials stay in root
+`.env`, `backend/.env`, or backend process environment variables. Never put them in
+`web/.env`, commit them, or paste them into logs. Snyk is skipped at the user's request.
 
 ## Start tomorrow
 
@@ -90,13 +93,13 @@ are submitted. Submitted, constructed, and queryable are separate statuses. Cano
 application memory remains authoritative; merely storing that memory in Cognee does not
 yet establish that Cognee-produced entities/relationships control downstream decisions.
 
-## HydraDB: tenant scope, not an invented Cypher route
+## HydraDB: API v2 database scope
 
-Provision a tenant and ensure its infrastructure is ready. The implemented HTTP adapter
-targets the official tenant-scoped [REST API reference](https://docs.hydradb.com/api-reference):
-`/memories/add_memory` and `/recall/recall_preferences`. It does not target `/v1/cypher`.
-If your event account exposes a different database-scoped API version, confirm that
-version with the sponsor before changing the endpoint or IDs.
+Provision a database and ensure its infrastructure is ready. The live-verified adapter
+uses `API-Version: 2`, multipart `POST /context/ingest` and JSON `POST /query`.
+The legacy tenant setting maps to `database`, and sub-tenant maps to optional `collection`;
+`HYDRADB_DATABASE` and `HYDRADB_COLLECTION` aliases are accepted. The old memory/recall
+routes returned 404 for this account and are no longer used. No Cypher bridge is invented.
 
 Only quality-gated promoted memories are queued. Queue acknowledgement does not establish
 queryability. Recall validates the exact signature, canonical identity, corpus version,
@@ -114,8 +117,10 @@ cd backend
 .\.venv\Scripts\python.exe -m pip install -c constraints.txt -e ".[dev,native]"
 ```
 
-Create/export a reviewed `.pipe` with RocketRide's tools, then set its file path (relative
-paths resolve from the repo root) and input source node ID. Account portal URLs are not
+The included `pipelines/retrievallab_planner.pipe` uses source `webhook_1`; see
+`pipelines/README.md` for configuration, safe smoke testing and the partial live result.
+Set its file path (relative paths resolve from the repo root) and source node ID
+after verifying it for your runtime. Account portal URLs are not
 runtime endpoints. The adapter uses the [official SDK](https://cloud.rocketride.ai/sdk)
 `use`, `send`, and `terminate` lifecycle, with bounded calls and a lazy import.
 
@@ -131,19 +136,24 @@ still retrieves and validates evidence through Hotdata/local fallback afterward.
 
 Follow the sponsor's [release/setup instructions](https://github.com/modiqo/rote-releases)
 and [Play tooling](https://github.com/modiqo/play). Complete the event warm-up, login,
-and capture/review workflow yourself. No installer, account changes, OAuth approval, or
-Discord readiness message has been performed here. Confirm that your installed Play CLI
+and capture/review the application workflow. WSL Codex installation, user-driven sign-in
+and the official Hello warm-up are now complete; see `HANDOFF.md`. A separate approved
+application replay Play is now saved and locally released; see `plays/README.md`.
+No Discord readiness message has been sent. Confirm that your installed Play CLI
 supports `rote play run` and the documented JSON/noninteractive flags.
 
 The app looks up its local saved strategy without running external code. At actual replay,
-an explicitly configured Play is invoked with `query`, `query_pattern`, and `strategy`
-parameters; your approved Play must declare those inputs. Configuring `ROTE_PLAY_REF`
+the included Play is invoked with `python`, `query`, `strategy`, and `top_k` when
+`ROTE_PYTHON_PATH` is set. Without that setting the legacy generic Play invocation retains
+`query`, `query_pattern`, and `strategy`; do not use that mode for the included Play.
+`ROTE_WSL_DISTRIBUTION` enables Windows-to-WSL execution. Configuring `ROTE_PLAY_REF`
 opts into executable code, so pin a reviewed version. The command uses an argument vector,
 not a shell, and has a timeout; this is not a sandbox for the Play itself.
 
 Native capture still requires a recorded workspace trace. `play_captured` in the API
 describes the durable local strategy record, not a native Rote artifact. CLI completion
-and retrieval success are separate. Do not wire a Play back to this endpoint recursively.
+and retrieval success are separate. The included Play's output is validated and consumed
+directly, avoiding duplicate retrieval. Do not wire a Play back to this endpoint recursively.
 
 ## Snyk and acceptance
 

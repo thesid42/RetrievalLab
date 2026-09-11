@@ -1,6 +1,221 @@
 # RetrievalLab handoff
 
-Updated: September 11, 2026, native-integration correction pass.
+Updated: September 11, 2026, 22:25 UTC, live integration repair and native app replay.
+
+## Current handoff: app running, native replay verified
+
+This section supersedes older setup/failure statements below. Earlier evidence is retained
+as history, not current acceptance status.
+
+GitHub delivery scope (subsequent user request): integration fixes, local Play source,
+tests/docs, and the five-example UI dropdown. Dropdown choices do not execute requests;
+AUTH-502 OAuth, current refunds, Renderer 4.2 and duplicate checkout are available alongside
+AUTH-431. No additional live examples were run. Credentials, runtime state and generated
+Rote index/lint/release files remain local. GitHub source publication is separate from
+Rote registry publication; no registry Play was published. Existing untracked
+`.github/copilot-instructions.md` and editor-only pipeline layout changes are outside
+this delivery. Check Git history/status for the current commit and push state.
+
+- UI: http://localhost:5173 ; API: http://127.0.0.1:8000/api/v1/health . Loopback only,
+  development mode, demo fault injection off. Local API access key is not configured;
+  do not expose this server publicly. Logs are in `runtime/api-live.*.log` and
+  `runtime/web-live.*.log`. Inspect current listener PIDs before stopping anything.
+- Latest complete HTTP replay: `27c60b47-9ec3-4f43-a1c9-23ebd6c94d73`, query
+  `Why does AUTH-431 happen after enabling SSO?`, outcome `success`, path `replay`,
+  one retrieval attempt, baseline skipped, 53,407.61 ms, heuristic quality 0.8341.
+  HydraDB returned validated remote memory; RocketRide accepted native dispatch;
+  Rote executed the saved Play; actual Hotdata candidates were consumed. No duplicate
+  app retrieval ran. Cognee and HydraDB writes were correctly skipped on this replay.
+- Hotdata: real corpus has 11 rows. Fixed CSV-inferred numeric `version` and naive UTC
+  `published_at` by SQL casts; strict Document validation remains intact. Native candidates
+  are ranked locally (`remote+local-ranking`), not provider-side semantic embeddings.
+- Cognee Cloud: fixed multipart file field `data`, dataset form field `datasetName`, and
+  Cloud camelCase `runInBackground`, `searchType`, `topK`. The approved synthetic AUTH-431
+  memory passed add, cognify, and search (`remote-queryable`). Earlier empty add acceptance
+  was not real construction and is superseded. The user-created dataset is `retrievallab`.
+- HydraDB: migrated obsolete endpoints to API v2 `/context/ingest` and `/query`, with
+  `API-Version: 2`, database/collection scope, multipart memory ingestion, response-envelope
+  validation, and accepted `id` acknowledgements. Live write was `remote-submitted`;
+  subsequent remote recall returned a validated canonical AUTH-431 memory.
+- RocketRide's model works in the configured execution environment. Individual native
+  plan and replay smoke checks passed. The old combined checker can still hit an SDK
+  AttributeError when reusing its task. Do not claim its combined check is green.
+- Rote Play: `plays/retrievallab-replay/main.ts`, locally released version 0.0.1 (never
+  published). Uses process.exec to run `python -m app.replay_cli`; read-only Hotdata
+  retrieval, no memory writes and no recursion through the app HTTP endpoint. Validates
+  worker exit status, query, corpus version, strategy, ranks and provider identity.
+  Three parameter variants passed, including empty results; invalid strategy failed as
+  expected. Release gates passed; portability/shareability is `not_assessed` because the
+  Python executable is a caller-supplied parameter. Local `play list --dir .../plays` finds
+  the release; keyword search currently returns below-relevance-floor. Absolute Play path
+  execution works and is what the app uses. See `plays/README.md`.
+- User approved this local Play and AUTH-431 synthetic provider memory writes. Do not run
+  additional live write scenarios without appropriate approval. Snyk was explicitly skipped;
+  no scan or manifest upload occurred. No Discord message, publication, deployment, commit
+  or push was performed in this pass.
+- Root `.env` was preserved. Created ignored `backend/.env` with nonsecret local wiring:
+  pipeline path/source, provider timeout 60 s, WSL distro `Ubuntu-22.04`, Rote CLI path
+  `/home/sid/.local/bin/rote`, approved absolute Play path, Rote timeout 75 s, and Linux
+  Python `/mnt/e/Projects/Data Hackathon/runtime/rote-smoke-linux/bin/python`.
+  That Linux venv has the backend installed editable; keep Windows `backend/.venv` intact.
+- Checks: **77 backend tests passed**, two existing deprecation warnings; Ruff passed.
+  Frontend build, API contract and isolated offline demo regression passed. A sandboxed
+  test retry hit shared-temp permissions; the final run used a fresh local temp directory.
+  Rote evidence:
+  `/home/sid/.rote/workspaces/retrievallab-replay-native` response `@1` is recorded CLI
+  success; execution history is under `dag-retrievallab-replay-dda41f81`. Typed child exit
+  and output are authoritative, not `rote ls` aggregate capture counts.
+
+### Remaining work, in priority order
+
+1. Reliability/latency: the preceding replay `a251e5ae-ed9e-4c7c-a083-871d9e7d2454`
+   returned a correct answer using RocketRide/Rote fallbacks. Retry passed natively, but
+   that intermittent cause is not proven fixed. Isolate per-request RocketRide task IDs
+   from the editor and diagnose SDK task reuse; retain safe diagnostics without secrets.
+2. Snyk only if the user changes their explicit skip decision. Security scan not done.
+3. Remote Hotdata telemetry table is optional and unconfigured; telemetry is durable SQLite.
+4. Public hosting, production auth, browser visual QA, wider approved live scenarios and
+   independent retrieval-quality evaluation remain separate from this local verification.
+   Extractive answers/token-hash retrieval remain MVP implementations.
+5. Preserve existing `.github/`, editor pipeline metadata changes, and recovery stash
+   described below. GitHub delivery was subsequently requested; consult Git status/history
+   rather than older uncommitted/unpushed statements in this document.
+
+## Latest: RocketRide pipeline merged and tested through Rote
+
+This section supersedes the earlier statement that a pipeline/source are missing.
+
+- Fetched and fast-forwarded `main` from `4ad501b` to Anmol's `debc996`
+  (`rockerride pipeline`). GitHub had no pull request; the change was on `main`.
+  No push, deployment, or credential edits were performed in this pass.
+- The overlap was `.gitignore` and untracked `.claude/rules/rocketride.md`, both
+  byte-identical to the incoming versions. A scoped recovery stash remains:
+  `86149c6cd14acad18d8f7829c8251e356563a397`, named
+  `pre-RocketRide-fast-forward-2026-09-11`. Do not blindly pop it: those versions
+  are already present in the merged commit. Existing handoff and `.github/`
+  changes were preserved.
+- The editor changed only webhook UI metadata and top-level `docRevision` in
+  `pipelines/retrievallab_planner.pipe` during testing. That user/editor change
+  was preserved; no pipeline node logic was changed by this pass.
+- Strengthened `pipelines/check_planner.py`: project-root credential resolution,
+  no deployment-key forwarding, isolated test task, request timeouts, explicit
+  cleanup, registered-tool plan assertions using the app decoder, replay-ack
+  assertions, safe JSON reporting and nonzero failure exits. Added 15 offline
+  contract tests in `backend/tests/test_planner_smoke.py`.
+- **Live Rote result is PARTIAL, not green:** server connection/start succeeded;
+  validation had zero warnings; the plan decoded to `bm25`, `hybrid`,
+  `hybrid_rerank`. `execute_play` did not satisfy the acknowledgement decoder and
+  failed with `ValueError`. Task termination succeeded, process exit was 1.
+  Raw answers were deliberately not logged, so the precise cause (pipeline
+  response versus envelope decoding) needs a follow-up diagnostic.
+- Rote workspace: `/home/sid/.rote/workspaces/retrievallab-rocketride-20260911`.
+  `@19 .stdout.text` = 67 passing tests; `@24 .text` = live JSON report;
+  `@25 .exit` = code 1. Query via a WSL login shell from that workspace.
+  `rote ls` lists successful *captures* even for timed-out/failed commands;
+  inspect the typed exit and report instead of using its aggregate success rate.
+- Initial sandboxed pytest failed on temporary-directory permissions, not test
+  assertions. Re-running under Rote with new disposable `runtime/pytest-*`
+  directories passed all 67 tests. Ruff checks of the new checker/tests passed.
+- Windows foreground execution under Rote works for quick tests, but has a
+  30-second limit. Its background/PTY attempts stalled and were stopped/timed
+  out; no Windows checker process remained at final inspection. The actual
+  completed live run used an isolated WSL Python 3.14.3 environment at
+  `runtime/rote-smoke-linux`, with the backend installed editable and
+  `rocketride==1.3.0`. Windows `backend/.venv` was not replaced or upgraded.
+- The configured development endpoint was staging. There was no local
+  `ROCKETRIDE_OPENAI_KEY`, but the successful live plan shows a model credential
+  was available through the connected execution environment. Do not invent a
+  missing-credential diagnosis from the root `.env` alone.
+- Next: inspect the replay response safely; fix/verify its JSON contract and
+  test the app orchestration path at measured LLM latency. Pipeline path/source
+  are not automatically enabled in `backend/.env`. See `pipelines/README.md`.
+  Native Rote application capture/replay, other sponsor acceptance, and Snyk
+  scans remain open. No native retrieval execution is inferred from a plan.
+
+### Rote reuse handoff (process-only; not a released Play)
+
+- Goal/output: repeat this project's offline and live planner acceptance checks,
+  returning separate exit codes and a qualified combined result.
+- Caller inputs: project root, Linux Python executable, pipeline/source and test
+  inputs (the latter currently fixed in the checker; parameterize before release).
+- Semantic stages/responsibility: offline regression assertions; live planner
+  lifecycle/response assertions. These are independent process stages.
+- Substrate: `process.exec`; no adapter/session or fabricated adapter ID needed.
+- Ordering: preflight each runtime/required file before its stage; combine only
+  after both results are available. Discovery retries are not reusable stages.
+- Consumed values: source files and project development credentials, loaded
+  locally; no secrets in argv, captured reports or Play metadata.
+- Failure contract: timeout, invalid output, cleanup failure and nonzero exit
+  fail the affected stage; a successful capture is not a successful test.
+- Presentation: show passed/failed/unavailable per stage and retain evidence
+  references; the combined headline remains partial while replay fails.
+- Save decision: not yet approved; ask whether to save a reusable Rote Play.
+  No pending stub exists because this workspace is process-only. Do not export,
+  release or publish without that decision and the Rote authoring/QA gates.
+
+## Latest local setup: Rote and Play
+
+This section supersedes the earlier audit's statements that Rote was not installed or
+authenticated. The application integration is still separate from this machine setup.
+
+- Installed in WSL2 `Ubuntu-22.04`, Linux user `sid`: Rote **0.82.0**, Play **0.4.98**,
+  Codex CLI **0.154.0**, uv **0.11.1**, Deno **2.7.5**, and the Rote TypeScript SDK.
+  Launchers live in `/home/sid/.local/bin`; Rote runtimes live in `/home/sid/.rote`.
+- The user completed GitHub sign-in. `rote whoami --check` now succeeds. Never copy
+  tokens, browser callback URLs, or Rote credential stores into this repository.
+- Play was installed and verified for **WSL Codex only**. Claude Code and OpenCode
+  were detected but not selected. Windows Codex was not modified. Tulving/recurring
+  Plays remain off. Restart the WSL Codex session to load the installed skills.
+- `play preflight --harness codex --json` reports `ready: true`, all seven checks pass,
+  and `setup_required: false`. `play-machine describe --json` successfully compiles
+  the installed controller (85 states).
+- The reviewed official `modiqo/hello@0.2.2` Play completed with exit code 0 and **9/9
+  stages OK** at 20:57 UTC. Its public service-status/advisory watch items are not
+  installation failures or findings about this application's dependencies.
+- Play's optional catalog warm-up encountered an upstream invalid `created_at` on
+  `modiqo/assessment-bomb-forecaster`. Installation remained READY; direct Hello
+  lookup, inspection, and execution worked. Do not edit that unrelated remote record.
+- Installer receipt and recovery reference (inside Ubuntu):
+  `/home/sid/.local/state/play-bootstrap/runs/20260911T205336388249Z.md` and `.json`.
+
+Use a **login shell** when invoking these tools from PowerShell. Calling a Linux binary
+directly through `wsl -- /absolute/path` can omit `~/.local/bin` from child-process PATH,
+misdetect the Windows npm Codex shim, and produce a false-negative Play preflight.
+
+```powershell
+wsl -d Ubuntu-22.04 -- bash -lc 'rote whoami --check'
+wsl -d Ubuntu-22.04 -- bash -lc 'play preflight --harness codex --json'
+# Explicitly executes the reviewed, read-only warm-up:
+wsl -d Ubuntu-22.04 -- bash -lc 'rote play run modiqo/hello@0.2.2 --yes'
+```
+
+Browser-install repair: the original full installer timed out after 600 seconds while
+Playwright attempted a hidden sudo prompt. Linux Chrome **153.0.8010.36** and its OS
+dependencies were installed with scoped WSL administrator access; Playwright's dependency
+check now reports all dependencies installed. Windows Chrome was not changed. The later
+`rote setup --full` retry was bounded and did not complete; browser-backed Rote execution
+and its MCP service have **not** been smoke-tested. Hello does not need a browser/daemon.
+If full browser setup is needed, run `sudo -v` followed by `rote setup --full` in the same
+interactive Ubuntu terminal; the dependency installer requests sudo even when packages
+are already present. Do not run the whole Rote setup as root or loosen sudo rules.
+
+GitHub login also waited for `xdg-open`/Linux Chrome to exit before consuming its queued
+localhost callback. Closing the login browser window allowed it to complete. The login
+process has finished; do not start parallel login/install processes.
+
+Still required: capture/review an application-specific native Play with the app's input
+contract, configure `RETRIEVALLAB_ROTE_PLAY_REF`, and bridge the Windows backend to WSL
+or explicitly move the backend runtime to Linux. Do not reuse/overwrite the Windows
+`backend/.venv` as a Linux venv. The Windows readiness check still reports Rote missing;
+that is an environment boundary, not evidence this WSL installation failed. Hello is a
+warm-up, not RetrievalLab's replay workflow. No Discord readiness message was sent.
+
+RocketRide: the user reports the Local setup finished, and the offline application check
+detects its connection settings. A real `.pipe` and its source ID remain missing; no
+RocketRide end-to-end call has been verified. The generated `.rocketride` definitions are
+available locally. Preserve the existing `.env`, `.gitignore`, `.claude`, and `.github`
+changes from the user's setup. No application source changes or GitHub push occurred in
+this Rote setup pass.
 
 ## GitHub
 
@@ -165,8 +380,9 @@ do not erase existing learning. No account credentials have been set by the audi
    - hotdata.dev returns retrieval candidates/analytics;
    - RocketRide orchestrates registered tool execution;
    - actual Rote captures and replays workflows.
-4. Complete the event's Rote install/signup and hello-world warm-up. Its Discord readiness
-   message is a user/account action not performed by this audit.
+4. Rote install/signup and the official Hello warm-up are complete in WSL (see the latest
+   setup section). Finish the application-specific native capture/replay and Windows/WSL
+   execution bridge. Its Discord readiness message remains a user/account action.
 5. Authenticate Snyk and run dependency and source scans using `SECURITY.md`. The local
    CLI and policy file alone do not satisfy the scan requirement.
 6. Add independent retrieval evaluation on a larger held-out dataset, real embeddings if

@@ -8,6 +8,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from app.adapters.rocketride import RocketRideOrchestrator, _default_client_factory
 from app.adapters.rote import CLIResult, RotePlaybook
 from app.models import Diagnosis, FailureType, QualitySignals, StrategyName, StrategyRun
@@ -335,7 +337,6 @@ def test_rote_uses_documented_play_run_argv_and_local_mirror(tmp_path: Path) -> 
                 f"query_pattern={current.signature}",
                 "strategy=bm25",
                 "--output=json",
-                "--yes",
             ],
             3.0,
         )
@@ -410,3 +411,69 @@ def test_rote_exit_zero_without_json_is_not_semantic_success(tmp_path: Path) -> 
 
     assert status.mode == "native-command-completed"
     assert "no semantic success" in status.detail
+
+
+@pytest.mark.parametrize("fault", [None, "query", "corpus", "strategy", "failed", "truncated"])
+def test_native_rote_retrieval_is_request_bound_and_uses_wsl_argv(tmp_path: Path, fault) -> None:
+    state = StateRepository(tmp_path / "native.db", corpus_version="v1")
+    current = profile()
+    result = StrategyRun(
+        strategy=StrategyName.BM25,
+        results=[],
+        quality_score=0,
+        latency_ms=1,
+        signals=diagnosis().signals,
+    )
+    payload = {
+        "schema": "retrievallab.replay.v1",
+        "query": current.raw_query,
+        "query_pattern": current.signature,
+        "corpus_version": "v1",
+        "strategy_run": result.model_dump(mode="json"),
+        "integration": {
+            "name": "hotdata.dev",
+            "role": "SQL candidate retrieval",
+            "mode": "remote+local-ranking",
+            "called": True,
+            "detail": "test",
+        },
+    }
+    if fault == "query":
+        payload["query"] = "AUTH-999"
+    if fault == "corpus":
+        payload["corpus_version"] = "stale"
+    if fault == "strategy":
+        payload["strategy_run"]["strategy"] = "hybrid"
+    report = {
+        "status": "failed" if fault == "failed" else "succeeded",
+        "complete": True,
+        "steps": {
+            "retrieve_evidence": {
+                "kind": "process.exec",
+                "status": {"exit": {"kind": "code", "code": 0}},
+                "stdout": {"text": json.dumps(payload), "truncated": fault == "truncated"},
+            }
+        },
+    }
+
+    async def runner(argv, timeout):
+        assert argv[:6] == ["wsl.exe", "-d", "Ubuntu-22.04", "--", "/bin/rote", "play"]
+        assert "--yes" not in argv
+        assert "top_k=5" in argv
+        return CLIResult(0, json.dumps(report))
+
+    adapter = RotePlaybook(
+        settings(
+            tmp_path,
+            rote_cli_path="/bin/rote",
+            rote_wsl_distribution="Ubuntu-22.04",
+            rote_python_path="/venv/bin/python",
+            rote_play_ref="/plays/replay/main.ts",
+        ),
+        state,
+        runner,
+    )
+    replayed, integration, status = run(adapter.replay_retrieval(current, StrategyName.BM25, 5))
+    assert (replayed is not None) == (fault is None)
+    assert status.mode == ("native" if fault is None else "local-fallback")
+    assert (integration is not None) == (fault is None)

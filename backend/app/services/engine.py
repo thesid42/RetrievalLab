@@ -76,15 +76,14 @@ class RetrievalEngine:
             planner_calls = 0
             # Looking up a local play must never execute external code. Only an
             # explicitly configured, reviewed native Play is invoked at replay.
-            rote_status = await self.rote.replay(parameters={
-                "query": redact_sensitive(profile.raw_query),
-                "query_pattern": profile.signature,
-                "strategy": play["strategy"].value,
-            })
-            integrations.append(rote_status)
             rocket_status = await self.rocketride.execute_play(profile, play)
             integrations.append(rocket_status)
-            replay_run, hot_status = await self._execute(profile, play["strategy"], request.top_k)
+            replay_run, hot_status, rote_status = await self.rote.replay_retrieval(
+                profile, play["strategy"], request.top_k
+            )
+            integrations.append(rote_status)
+            if replay_run is None:
+                replay_run, hot_status = await self._execute(profile, play["strategy"], request.top_k)
             integrations.append(hot_status)
             # Rote recall is read-only; count a replay only after retrieval executed.
             self.state.record_replay(profile.signature)

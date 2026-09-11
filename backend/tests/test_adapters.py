@@ -31,6 +31,25 @@ def test_native_environment_aliases_and_explicit_settings(monkeypatch):
     assert Settings(_env_file=None).hotdata_api_key == "app-test-secret"
 
 
+def test_wsl_rote_readiness_checks_launcher_not_linux_path(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.integration_setup.which",
+        lambda name: "C:/Windows/System32/wsl.exe" if name == "wsl.exe" else None,
+    )
+    settings = Settings(
+        _env_file=None,
+        rote_cli_path="/home/test/.local/bin/rote",
+        rote_wsl_distribution="Ubuntu-22.04",
+        rote_play_ref="/project/plays/replay/main.ts",
+    )
+    entry = next(item for item in integration_readiness(settings) if item["provider"] == "Rote")
+    assert entry["status"] == "configured-unverified"
+    assert entry["live_verified"] is False
+    monkeypatch.setattr("app.services.integration_setup.which", lambda _name: None)
+    entry = next(item for item in integration_readiness(settings) if item["provider"] == "Rote")
+    assert entry["missing"] == ["Installed Windows WSL launcher"]
+
+
 def test_readiness_never_exposes_secrets():
     settings = Settings(_env_file=None, hotdata_api_key="DO-NOT-PRINT", cognee_api_key="PRIVATE")
     report = json.dumps(integration_readiness(settings))

@@ -1,0 +1,1 @@
+{"schema":"retrievallab.replay.v1","query":"Synthetic fixture","query_pattern":"semantic_question:synthetic-fixture","corpus_version":"fixture","strategy_run":{"strategy":"bm25","results":[],"quality_score":0,"latency_ms":12},"integration":{"mode":"local-fallback"}}

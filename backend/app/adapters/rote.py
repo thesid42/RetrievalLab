@@ -17,11 +17,14 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from app.models import IntegrationStatus, StrategyName, StrategyRun
+from app.models import IntegrationStatus, QueryProfile, StrategyName, StrategyRun
+from app.services.security import redact_sensitive
 from app.services.state import StateRepository
 
 MAX_PLAY_STEPS = 32
-REPORT_KEYS = frozenset({"result", "run_id", "status", "state", "outcome", "steps", "stages", "summary", "ok"})
+REPORT_KEYS = frozenset(
+    {"result", "run_id", "status", "state", "outcome", "steps", "stages", "summary", "ok"}
+)
 
 
 @dataclass(frozen=True)
@@ -49,9 +52,7 @@ async def _default_process_runner(argv: Sequence[str], timeout_seconds: float) -
         stderr=asyncio.subprocess.PIPE,
     )
     try:
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(), timeout=timeout_seconds
-        )
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout_seconds)
     except asyncio.CancelledError:
         try:
             process.kill()
@@ -79,9 +80,7 @@ def _valid_play(play: Any, signature: str) -> dict[str, Any] | None:
     try:
         raw_strategy = play.get("strategy")
         strategy = (
-            raw_strategy
-            if isinstance(raw_strategy, StrategyName)
-            else StrategyName(raw_strategy)
+            raw_strategy if isinstance(raw_strategy, StrategyName) else StrategyName(raw_strategy)
         )
     except (TypeError, ValueError):
         return None
@@ -144,6 +143,8 @@ class RotePlaybook:
     ):
         self.state = state
         self.cli_path = str(_setting(settings, "rote_cli_path", "rote"))
+        self.wsl_distribution = _setting(settings, "rote_wsl_distribution")
+        self.python_path = _setting(settings, "rote_python_path")
         self.play_ref = _valid_play_ref(_setting(settings, "rote_play_ref"))
         timeout = float(_setting(settings, "rote_timeout_seconds", 30.0))
         self.timeout_seconds = max(0.1, min(timeout, 120.0))
@@ -153,6 +154,7 @@ class RotePlaybook:
         self,
         play_ref: str | None = None,
         parameters: Mapping[str, str] | None = None,
+        reports: list[dict[str, Any]] | None = None,
     ) -> IntegrationStatus:
         if play_ref is not None:
             target = _valid_play_ref(play_ref)
@@ -171,6 +173,8 @@ class RotePlaybook:
                 "No explicit Rote Play reference is configured; no native replay was attempted.",
             )
         argv = [self.cli_path, "play", "run", target]
+        if self.wsl_distribution:
+            argv = ["wsl.exe", "-d", str(self.wsl_distribution), "--", *argv]
         if parameters:
             if len(parameters) > 32:
                 return _status(
@@ -196,9 +200,9 @@ class RotePlaybook:
                         "Rejected invalid Rote Play parameter before native replay.",
                     )
                 argv.append(f"{name}={value}")
-        # Both flags are documented by Rote: JSON is the canonical machine
-        # result and --yes prevents a TTY confirmation from hanging the API.
-        argv.extend(["--output=json", "--yes"])
+        # Local Play runs reject --yes (it is registry-only in Rote 0.82).
+        # stdin is DEVNULL, so an unexpected interactive request cannot hang.
+        argv.append("--output=json")
         try:
             raw_result = self.process_runner(argv, self.timeout_seconds)
             if inspect.isawaitable(raw_result):
@@ -261,6 +265,8 @@ class RotePlaybook:
                 True,
                 "Rote Play command exited 0, but its JSON object did not match the documented report shape; no semantic success was claimed.",
             )
+        if reports is not None:
+            reports.append(report)
         return _status(
             "native",
             True,
@@ -275,6 +281,82 @@ class RotePlaybook:
         """Run a configured Play without inventing lookup/capture subcommands."""
 
         return await self._run_native_play(play_ref, parameters)
+
+    async def replay_retrieval(
+        self, profile: QueryProfile, strategy: StrategyName, top_k: int
+    ) -> tuple[StrategyRun | None, IntegrationStatus | None, IntegrationStatus]:
+        """Use evidence from the reviewed Play; never execute retrieval twice."""
+        if not self.python_path:
+            status = await self.replay(
+                parameters={
+                    "query": redact_sensitive(profile.raw_query),
+                    "query_pattern": profile.signature,
+                    "strategy": strategy.value,
+                }
+            )
+            return None, None, status
+        reports: list[dict[str, Any]] = []
+        status = await self._run_native_play(
+            parameters={
+                "python": str(self.python_path),
+                "query": redact_sensitive(profile.raw_query),
+                "strategy": strategy.value,
+                "top_k": str(top_k),
+            },
+            reports=reports,
+        )
+        if status.mode != "native" or not reports:
+            return None, None, status
+        try:
+            report = reports[0]
+            if report.get("status") != "succeeded" or report.get("complete") is not True:
+                raise ValueError("Rote run did not succeed")
+            body = report["steps"]["retrieve_evidence"]
+            if body.get("kind") != "process.exec" or body["status"]["exit"] != {
+                "kind": "code",
+                "code": 0,
+            }:
+                raise ValueError("Rote process did not complete")
+            if body["stdout"].get("truncated") or len(body["stdout"]["text"]) > 1_000_000:
+                raise ValueError("Rote evidence was truncated or oversized")
+            payload = json.loads(body["stdout"]["text"])
+            if (
+                payload.get("schema") != "retrievallab.replay.v1"
+                or payload.get("query") != redact_sensitive(profile.raw_query)
+                or payload.get("query_pattern") != profile.signature
+                or payload.get("corpus_version") != self.state.corpus_version
+            ):
+                raise ValueError("Rote evidence did not match this request")
+            result = StrategyRun.model_validate(payload["strategy_run"])
+            if result.strategy != strategy or len(result.results) > top_k:
+                raise ValueError("Rote evidence violated the strategy/result bound")
+            if any(
+                item.strategy != strategy or item.rank != index
+                for index, item in enumerate(result.results, 1)
+            ):
+                raise ValueError("Rote evidence rank or strategy mismatch")
+            integration = IntegrationStatus.model_validate(payload["integration"])
+            if integration.name != "hotdata.dev" or integration.role != "SQL candidate retrieval":
+                raise ValueError("Rote provider identity mismatch")
+        except (KeyError, TypeError, ValueError):
+            return (
+                None,
+                None,
+                _status(
+                    "local-fallback",
+                    True,
+                    "Rote output failed the query, corpus, or evidence contract; app retrieval fallback used.",
+                ),
+            )
+        return (
+            result,
+            integration,
+            _status(
+                "native",
+                True,
+                "Rote executed the saved Play and returned validated retrieval evidence; no duplicate retrieval was run.",
+            ),
+        )
 
     async def recall(self, query_pattern: str) -> tuple[dict[str, Any] | None, IntegrationStatus]:
         try:

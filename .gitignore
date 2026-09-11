@@ -16,3 +16,8 @@ backend/.env
 web/.env
 runtime/
 .rocketride/
+plays/**/deno.json
+plays/**/.rote/
+plays/.index/
+plays/**/.rote-flow-lint.json
+plays/**/.rote-release.lock

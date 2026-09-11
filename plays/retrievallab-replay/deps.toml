@@ -1,0 +1,23 @@
+schema_version = 1
+
+[[tools]]
+id = "env"
+command = "env"
+required = true
+
+[[tools.install]]
+manager = "apt"
+package = "coreutils"
+
+[[tools]]
+id = "python"
+command = "python3"
+required = true
+version_requirement = ">=3.10.0"
+
+[[tools.install]]
+manager = "apt"
+package = "python3"
+
+# The caller's `python` parameter must select a venv with RetrievalLab installed.
+# No dependencies are installed automatically by this Play.

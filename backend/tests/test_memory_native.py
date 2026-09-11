@@ -139,10 +139,13 @@ def test_cognee_native_add_cognify_and_search_contract(tmp_path: Path) -> None:
     ]
     assert requests[0].headers["x-api-key"] == "secret"
     assert requests[0].headers["content-type"].startswith("multipart/form-data")
-    # The native add endpoint is multipart/form-data; raw_data is a canonical
-    # JSON memory and must not be sent to a fabricated /memories/construct path.
-    assert b"raw_data" in requests[0].content
+    # Cloud /add accepts an actual file field, not a raw_data form string.
+    assert b'name="data"; filename="retrievallab-memory.txt"' in requests[0].content
+    assert b"raw_data" not in requests[0].content
     assert b"datasetName" in requests[0].content
+    assert json.loads(requests[1].content)["runInBackground"] is False
+    assert json.loads(requests[2].content)["searchType"] == "CHUNKS"
+    assert json.loads(requests[2].content)["topK"] == 5
     assert all(request.url.path != "/v1/memories/construct" for request in requests)
     assert memory["query_pattern"] == current_profile.signature
 
@@ -289,7 +292,9 @@ def test_hydra_empty_recall_is_authoritative_and_uses_tenant_scope(tmp_path: Pat
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        return httpx.Response(200, json={"chunks": []}, request=request)
+        return httpx.Response(
+            200, json={"success": True, "data": {"chunks": []}, "meta": {}}, request=request
+        )
 
     configured = settings(
         tmp_path,
@@ -303,12 +308,14 @@ def test_hydra_empty_recall_is_authoritative_and_uses_tenant_scope(tmp_path: Pat
 
     assert match is None
     assert status.mode == "remote"
-    assert json.loads(requests[0].content)["tenant_id"] == "tenant-1"
-    assert json.loads(requests[0].content)["sub_tenant_id"] == "retrievallab"
-    assert requests[0].url.path == "/recall/recall_preferences"
+    assert json.loads(requests[0].content)["database"] == "tenant-1"
+    assert json.loads(requests[0].content)["collection"] == "retrievallab"
+    assert json.loads(requests[0].content)["type"] == "memory"
+    assert requests[0].headers["API-Version"] == "2"
+    assert requests[0].url.path == "/query"
 
 
-def test_hydra_write_uses_add_memory_and_reports_queued_only(tmp_path: Path) -> None:
+def test_hydra_write_uses_v2_multipart_ingest_and_reports_queued_only(tmp_path: Path) -> None:
     current_profile = profile()
     state = StateRepository(tmp_path / "state.db", corpus_version="v1")
     requests: list[httpx.Request] = []
@@ -319,14 +326,17 @@ def test_hydra_write_uses_add_memory_and_reports_queued_only(tmp_path: Path) -> 
             200,
             json={
                 "success": True,
-                "results": [
-                    {
-                        "source_id": _memory(profile().signature)["memory_id"],
-                        "status": "queued",
-                    }
-                ],
-                "success_count": 1,
-                "failed_count": 0,
+                "data": {
+                    "results": [
+                        {
+                            "id": _memory(profile().signature)["memory_id"],
+                            "status": "queued",
+                        }
+                    ],
+                    "success_count": 1,
+                    "failed_count": 0,
+                },
+                "meta": {},
             },
             request=request,
         )
@@ -341,14 +351,47 @@ def test_hydra_write_uses_add_memory_and_reports_queued_only(tmp_path: Path) -> 
     status = run(hydra.write(_memory(current_profile.signature), promoted=True))
 
     assert status.mode == "remote-submitted"
-    assert requests[0].url.path == "/memories/add_memory"
-    payload = json.loads(requests[0].content)
-    assert payload["tenant_id"] == "tenant-1"
-    assert payload["upsert"] is True
-    item = payload["memories"][0]
+    assert requests[0].url.path == "/context/ingest"
+    assert requests[0].headers["API-Version"] == "2"
+    from email.parser import BytesParser
+    from email.policy import default
+
+    form = BytesParser(policy=default).parsebytes(
+        b"Content-Type: "
+        + requests[0].headers["content-type"].encode()
+        + b"\r\n\r\n"
+        + requests[0].content
+    )
+    payload = {
+        part.get_param("name", header="content-disposition"): part.get_payload(decode=True).decode()
+        for part in form.iter_parts()
+    }
+    assert payload["database"] == "tenant-1"
+    assert payload["upsert"] == "true"
+    assert payload["type"] == "memory"
+    item = json.loads(payload["memories"])[0]
     assert item["source_id"] == _memory(current_profile.signature)["memory_id"]
     assert json.loads(item["text"])["query_pattern"] == current_profile.signature
     assert state.find_memory(current_profile.signature) is not None
+
+
+def test_hydra_unsuccessful_v2_envelope_uses_local_fallback(tmp_path: Path) -> None:
+    state = StateRepository(tmp_path / "state.db", corpus_version="v1")
+    state.upsert_memory(_memory(profile().signature))
+    configured = settings(
+        tmp_path,
+        hydradb_api_url="https://hydra.test",
+        hydradb_api_key="secret",
+        hydradb_tenant_id="db",
+    )
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200, json={"success": False, "data": {"chunks": []}, "error": {"code": "failure"}}
+        )
+    )
+    match, status = run(HydraMemoryGraph(configured, state, transport).find_play(profile()))
+    assert match is not None
+    assert status.mode == "local-fallback"
 
 
 def test_hydra_invalid_memory_never_promotes_or_calls_remote(tmp_path: Path) -> None:
