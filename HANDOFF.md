@@ -6,8 +6,9 @@ Updated: September 11, 2026. This replaces the pre-audit handoff.
 
 Public source repository: https://github.com/thesid42/RetrievalLab (`main`).
 The user requested the repository name match the application and requested `Anmol-tech`
-as a collaborator. GitHub collaborator access requires the invitee to accept the invitation;
-check repository access settings for the latest invitation status.
+as a collaborator. GitHub API verification confirmed `Anmol-tech` has active **write**
+access; the invitation is no longer pending. Publication and access were checked on
+September 11, 2026.
 
 Local environments, credentials, generated builds and runtime databases are ignored.
 The initial import uses the authenticated owner's GitHub no-reply commit email.
