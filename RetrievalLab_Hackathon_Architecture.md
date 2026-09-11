@@ -4,8 +4,9 @@
 > Implementation status, September 11, 2026: this document is the product proposal.
 > The implemented stack is Vite/React + FastAPI + a local SQLite store. The retrieval
 > vectors are deterministic token-hash proxies, and answer synthesis is extractive.
-> Sponsor-named adapters currently expose custom HTTP bridge contracts, not verified
-> native sponsor integrations. Demo fault injection must be explicitly enabled.
+> Native provider adapters have replaced the initial custom HTTP bridge contracts.
+> Account/data setup and live acceptance remain open; see `INTEGRATIONS.md`.
+> Demo fault injection must be explicitly enabled.
 > See `AUDIT_TRIAGE.md` for implementation findings and `HANDOFF.md` for the current
 > continuation plan. Numeric examples below are illustrative, not benchmark results.
 

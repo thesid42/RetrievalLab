@@ -12,9 +12,13 @@ deployment have not been security-reviewed in a live environment.
   there is no LLM or arbitrary tool interpreter at that boundary.
 - Basic text redaction and suspicious-phrase filtering are defense-in-depth heuristics,
   not a guarantee of prompt-injection prevention or complete secret/PII detection.
-- Bridge responses must be validated before they change strategies, memory or evidence.
+- Native responses are validated before they change strategies, memory or evidence.
+- Remote provider URLs require encrypted transport; only loopback development accepts
+  HTTP/WS. API URLs cannot embed credentials, query strings, or fragments.
 - Remote planning is limited to registered retrieval strategies. Play steps are data;
-  the local executor does not evaluate returned code or shell commands.
+  the local executor does not evaluate returned code or shell commands. An explicitly
+  configured Rote Play is executable trusted code, not sandboxed by this app; review and
+  pin it before enabling. Rote recall is read-only; only actual replay invokes the CLI.
 - Local state and credential files are excluded by `.gitignore`.
 
 Before deploying to multiple users, add per-user data isolation, deployment authentication,
@@ -24,6 +28,10 @@ request limits, and a review of all actual sponsor transport/authentication cont
 
 The local Snyk CLI is installed in `web/node_modules`. No authenticated Snyk scan has
 completed; `.snyk` is a policy file, not evidence that this project is vulnerability-free.
+Snyk is not a runtime API integration. No app base URL or API key is needed. Interactive
+`snyk auth` uses OAuth; automation may supply `SNYK_TOKEN` securely in its environment.
+For a non-default Snyk region, select the documented CLI environment before authenticating.
+See [Snyk CLI authentication](https://docs.snyk.io/snyk-cli/authenticate-to-use-the-cli).
 
 After authenticating, from the repository root:
 

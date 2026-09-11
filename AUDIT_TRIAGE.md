@@ -7,10 +7,48 @@ agents covering retrieval/state, bridge contracts, and UI/build correctness.
 
 Keep the two-scenario MVP: exact identifiers and current policy evidence. FastAPI plus
 Vite/React is the implemented stack; the original document's Next.js diagram is a proposal.
-The five sponsor responsibilities remain appropriate, but current HTTP adapters define
-our own bridge contracts. Their existence does not establish working native sponsor
-integrations. The local database, retrieval proxy and play runner provide a development
-implementation of the loop.
+The five sponsor responsibilities remain appropriate. The follow-up integration pass
+replaced our custom bridge contracts with native interfaces. Offline validation does not
+establish working sponsor accounts or complete hackathon acceptance. The local database,
+retrieval proxy and saved-strategy runner still provide the fallback loop.
+
+## Native integration correction pass
+
+Advisor plus three Luna xhigh executors reviewed provider documentation and adapter code.
+
+| Issue | Correction |
+|---|---|
+| Hotdata dashboard has no custom base URL | Shared `https://api.hotdata.dev` default; token/workspace/database settings |
+| Query body and response were invented | Native SQL `columns`/`rows`, remote-only candidates, explicit local ranking |
+| Telemetry used a fabricated route | Optional native table loads; SQLite retained; explicit corpus load utility |
+| Cognee used generic Bearer bridge auth | Tenant URL, Cloud X-Api-Key or self-hosted bearer; multipart add/cognify/search |
+| Hydra used unverified `/v1/cypher` | Documented tenant-scoped memory write/recall; canonical and corpus validation |
+| RocketRide treated as REST | Installed official SDK; use/send/terminate; validated plans and honest dispatch status |
+| Rote treated as REST; read triggered execution | Native Play CLI on explicit replay only; recall read-only; capture labeled local |
+| Partial env setup was unclear | Correct template, stable dotenv paths, native aliases, safe offline readiness report/API |
+| Snyk looked like runtime integration | Documented local scan CLI plus OAuth/token requirements; no fabricated runtime URL |
+
+No live credentials were found, accounts provisioned, data uploaded, or authenticated
+native calls performed. Read `INTEGRATIONS.md` for the exact remaining setup and Git
+history for the source revision. Offline success is not live-provider acceptance.
+
+### Correction-pass validation
+
+- **52 backend tests passed**: native HTTP/SDK/CLI contracts, malicious/malformed data,
+  async acknowledgement handling, redaction, safe configuration, and local regressions.
+- Disposable HTTP demo passed: discovery, replay, 14-day current policy, unknown-ID
+  abstention, shared-key guards, dashboard counts and persistence after restart.
+- Ruff and `pip check` passed. RocketRide SDK 1.3.0 call signatures, timeout units, and
+  result-envelope fields were checked against the installed package source.
+- Hotdata loader dry-run passed: 11 synthetic documents, 3,545 CSV bytes, no network.
+- Frontend production build and API-mapper contract checks passed. Status text now
+  recognizes native stages and does not equate attempted calls with success or assert
+  Snyk was scanned. Sites guidance kept this a narrow change with no layout redesign.
+- Preview route returned HTTP 200; the preview opening was queued by the app. No new
+  visual browser QA or full live UI/API run is claimed. The preview server was stopped.
+  The generic Sites build wrapper failed on Windows; the project's normal build passed.
+- The same two non-failing test-stack deprecation warnings remain. No live sponsor or
+  authenticated Snyk checks were performed.
 
 ## Code findings addressed
 
@@ -35,7 +73,7 @@ Most relevant files: `backend/app/services/{engine,analyzer,state}.py`,
 `backend/app/adapters/{sponsors,hotdata}.py`, `backend/app/{config,main,models}.py`,
 `web/src/api.ts`, `web/src/contracts.ts`, `web/src/App.tsx`, and both regression suites.
 
-## Validation
+## Original local audit validation
 
 - Backend regression suite: **20 passed**, including positive and missing-evidence
   multi-identifier regressions.
@@ -76,10 +114,10 @@ solely to silence warnings.
 
 ### P0: Hackathon submission readiness
 
-The supplied builder guide requires all five technologies to be load-bearing. This local
-implementation does **not yet satisfy that requirement**. Verify the event's native APIs/SDKs
-and implement each custom bridge or replace it with a native adapter. Do not point a sponsor
-base URL at an invented endpoint.
+The supplied builder guide requires all five technologies to be load-bearing. This
+implementation does **not yet establish that requirement**. Native adapters now exist;
+configure them and retain real acceptance evidence. Do not substitute an authenticated
+submission or local fallback for proof that provider outputs control downstream stages.
 
 | Layer | What is still needed | Acceptance evidence |
 |---|---|---|
@@ -110,4 +148,4 @@ Those user/account actions remain undone; no messages or account changes were ma
   artifacts and credentials out of version control.
 - Address the test-stack deprecations in a separate checked dependency update.
 
-No native provider calls, account setup, or deployment are part of this local audit.
+No live native provider calls, account setup, or deployment are part of either local pass.

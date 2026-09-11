@@ -233,8 +233,8 @@ const pipeline = [
   { name: "HydraDB", role: "persists patterns", icon: Database },
   { name: "hotdata.dev", role: "executes live queries", icon: Activity },
   { name: "RocketRide", role: "orchestrates tools", icon: Layers3 },
-  { name: "Modiqo Rote", role: "captures the play", icon: RotateCcw },
-  { name: "Snyk", role: "scan configured", icon: ShieldCheck },
+  { name: "Modiqo Rote", role: "play workflow", icon: RotateCcw },
+  { name: "Snyk", role: "scan unverified", icon: ShieldCheck },
 ];
 
 function Pipeline({ run }: { run: RetrievalRun }) {
@@ -242,13 +242,13 @@ function Pipeline({ run }: { run: RetrievalRun }) {
   const providerSummary = (statuses: RetrievalRun["providers"]) => {
     if (statuses.length === 0) return { mode: "not reported", called: false, detail: "No status was returned for this stage." };
     const calledCount = statuses.filter((status) => status.called).length;
-    const remoteCount = statuses.filter((status) => status.mode.startsWith("remote")).length;
+    const nativeCount = statuses.filter((status) => status.called && /^(remote|native)/.test(status.mode)).length;
     const last = statuses[statuses.length - 1];
     const modes = [...new Set(statuses.map((status) => status.mode).filter(Boolean))];
     return {
       mode: modes.length > 1 ? `${last.mode} · ${modes.length} modes` : (last.mode || "reported"),
       called: calledCount > 0,
-      detail: `${statuses.length} adapter stage${statuses.length === 1 ? "" : "s"} reported; ${remoteCount} remote request${remoteCount === 1 ? "" : "s"}. ${statuses.map((status) => status.detail).filter(Boolean).join(" ")}`,
+      detail: `${statuses.length} adapter stages reported; ${calledCount} attempted provider calls; ${nativeCount} native/remote stage reports. Calls and submissions are not proof of completed execution. ${statuses.map((status) => status.detail).filter(Boolean).join(" ")}`,
     };
   };
   return (
@@ -262,7 +262,7 @@ function Pipeline({ run }: { run: RetrievalRun }) {
           const provider = providerSummary(run.providers.filter((item) => item.name === name));
           return (
           <div className="pipeline-step" key={name}>
-            <div><Icon size={18} /></div><span title={provider.detail}><strong>{name}</strong><small>{provider.mode === "not reported" ? role : provider.mode}</small></span>{provider.called && <Check size={14} className="done" />}
+            <div><Icon size={18} /></div><span title={provider.detail}><strong>{name}</strong><small>{provider.mode === "not reported" ? role : provider.mode}</small></span>{provider.called && <Activity size={14} aria-label="Provider call attempted; inspect status for outcome" />}
             {index < pipeline.length - 1 && <ArrowRight size={15} className="arrow" />}
           </div>
           );

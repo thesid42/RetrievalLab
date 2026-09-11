@@ -14,5 +14,4 @@ dist/
 .env.*.local
 backend/.env
 web/.env
-runtime/*.db
-runtime/*.db-*
+runtime/

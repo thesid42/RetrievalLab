@@ -105,7 +105,7 @@ export function createSampleRun(query: string): RetrievalRun {
       { name: "hotdata.dev", role: "live query", mode: "demo", called: true, detail: "Sample trace" },
       { name: "RocketRide", role: "orchestration", mode: "demo", called: true, detail: "Sample trace" },
       { name: "Modiqo Rote", role: "play capture/replay", mode: "demo", called: true, detail: "Sample trace" },
-      { name: "Snyk", role: "security policy", mode: "configured", called: false, detail: "Run scan before submission" },
+      { name: "Snyk", role: "security scan", mode: "unverified", called: false, detail: "No completed scan evidence; authenticate and scan before submission" },
     ],
   };
 }

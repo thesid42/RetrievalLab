@@ -3,12 +3,20 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
-from app.models import Document, QualitySignals, SearchResult, StrategyName, StrategyRun
+from app.models import (
+    Document,
+    IntegrationStatus,
+    QualitySignals,
+    SearchResult,
+    StrategyName,
+    StrategyRun,
+)
 from app.services.analyzer import calculate_signals
 from app.services.engine import RetrievalEngine
 from app.services.query import understand_query
@@ -159,3 +167,30 @@ def test_create_app_uses_explicit_settings_and_auth_guard() -> None:
             assert client.get("/api/v1/health").status_code == 200
             assert client.get("/api/v1/dashboard").status_code == 401
             assert client.get("/api/v1/dashboard", headers={"X-API-Key": "test-key"}).status_code == 200
+            assert client.get("/api/v1/integrations").status_code == 401
+            readiness = client.get("/api/v1/integrations", headers={"X-API-Key": "test-key"})
+            assert readiness.status_code == 200
+            assert len(readiness.json()["integrations"]) == 6
+            assert "test-key" not in readiness.text
+
+
+def test_failed_memory_persistence_is_not_reported_as_promotion(tmp_path) -> None:
+    settings = Settings(
+        _env_file=None, state_path=tmp_path / "state.db", demo_mode=True,
+        api_access_key=None, hotdata_api_key=None, cognee_api_key=None,
+        hydradb_api_key=None, rocketride_api_key=None, rote_play_ref=None,
+    )
+    application = create_app(settings)
+    with TestClient(application) as client:
+        application.state.engine.hydra.write = AsyncMock(return_value=IntegrationStatus(
+            name="HydraDB", role="durable graph write", mode="error-fallback", called=False,
+            detail="SQLite memory mirror could not be updated",
+        ))
+        response = client.post("/api/v1/retrieval/run", json={
+            "query": "Why does AUTH-431 happen after enabling SSO?",
+        })
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["outcome"] == "success"
+        assert not payload["memory_promoted"] and not payload["play_captured"]
+        assert "memory:promotion_failed" in payload["trace"]

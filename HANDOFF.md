@@ -1,6 +1,6 @@
 # RetrievalLab handoff
 
-Updated: September 11, 2026. This replaces the pre-audit handoff.
+Updated: September 11, 2026, native-integration correction pass.
 
 ## GitHub
 
@@ -14,6 +14,33 @@ Local environments, credentials, generated builds and runtime databases are igno
 The initial import uses the authenticated owner's GitHub no-reply commit email.
 
 ## Continue here
+
+Latest work is the native-integration correction pass requested after checking every
+provider's environment configuration. Read `INTEGRATIONS.md` first, then run:
+
+```powershell
+.\backend\.venv\Scripts\python.exe backend/scripts/check_integrations.py
+```
+
+- Removed the invented HTTP bridge implementation. `sponsors.py` is now just imports.
+- Hotdata has a default shared API host, real SQL row parsing, local ranking of remote
+  candidates, optional telemetry loads, and an explicit dry-run-first corpus loader.
+- Cognee uses native add/cognify/search; Hydra uses tenant-scoped memory endpoints.
+  Queueing, construction and recall are distinguished; only promoted runs are published.
+- RocketRide uses its official SDK with an explicitly configured pipeline/source ID.
+  SDK 1.3.0 and aiofiles 25.1.0 are installed and recorded in constraints.
+- Rote recall is read-only. Explicit replay can run a reviewed CLI Play; native workflow
+  capture still requires Rote workspace setup and a real recorded trace.
+- `.env.example` now shows correct native requirements and shared host defaults. The
+  readiness script and protected `/api/v1/integrations` endpoint expose no secret values.
+- No real `.env` or provider credentials were found. No accounts, data uploads, live
+  provider calls, Snyk scans, or deployments were performed. This native-integration
+  revision follows the published UI legibility commit `2b48d1d`; use Git history for
+  the current source revision.
+- Backend regressions, the disposable HTTP demo, Ruff and dependency consistency checks
+  pass (52 backend tests), as do the frontend build and API-mapper checks. A narrow UI
+  status fix recognizes native calls and labels Snyk unverified; layout is unchanged.
+  See `AUDIT_TRIAGE.md` for final check details and remaining acceptance gaps.
 
 Latest UI change: a legibility pass in `web/src/styles.css`, following the initial
 GitHub publication above.
@@ -64,7 +91,8 @@ attempt. Successful replay must survive restarting the app.
 | API and response fields | `backend/app/api/routes.py`, `backend/app/models.py` |
 | Query, retrieval, scoring and answer selection | `backend/app/services/engine.py`, `query.py`, `retrieval.py`, `analyzer.py` |
 | Durable memories, plays and telemetry | `backend/app/services/state.py` |
-| Custom HTTP bridge contracts | `backend/app/adapters/sponsors.py`, `hotdata.py` |
+| Native provider adapters | `backend/app/adapters/{hotdata,cognee,hydra,rocketride,rote}.py` |
+| Native setup / readiness | `INTEGRATIONS.md`, `backend/scripts/check_integrations.py` |
 | Frontend API mapping and UI | `web/src/api.ts`, `contracts.ts`, `types.ts`, `App.tsx` |
 | Corpus | `backend/app/data/corpus.json` |
 | Disposable HTTP scenario check | `backend/scripts/verify_demo.py` |
@@ -79,7 +107,7 @@ See the code for the exact contract; avoid deriving success from quality score a
 ## Installed environment
 
 - Windows, Python 3.14, Node 24, npm 11.
-- `backend/.venv` contains the editable backend package and all declared runtime/dev deps.
+- `backend/.venv` contains the editable backend package and runtime/dev/native extras.
 - `backend/constraints.txt` snapshots installed Python versions; it is not a portable lockfile.
 - `web/node_modules` and `web/package-lock.json` are present.
 - Snyk is installed locally under `web/node_modules`.
@@ -128,8 +156,9 @@ do not erase existing learning. No account credentials have been set by the audi
 
 1. Read the final audit results. Preserve the verified local acceptance loop while adding
    native integrations; do not spend the next session recreating the local skeleton.
-2. Wire actual sponsor APIs/SDKs or implement the custom bridge contracts against those APIs.
-   Do not assume our `/v1/...` paths are native sponsor endpoints.
+2. Complete native settings in `INTEGRATIONS.md`: credentials, resource IDs, loaded Hotdata
+   corpus, Cognee tenant URL, Hydra tenant readiness, and reviewed RocketRide/Rote workflows.
+   Do not restore the removed custom `/v1/...` bridge paths.
 3. Verify each provider's outputs actually control the next stage and retain call evidence:
    - Cognee structures traces;
    - HydraDB durably serves the graph across sessions;
@@ -148,7 +177,7 @@ do not erase existing learning. No account credentials have been set by the audi
 
 Native provider setup, Snyk authentication/scans and deployment remain incomplete.
 A local play represented by a strategy and fixed steps is not evidence of native Rote
-code capture, and a bridge acknowledgement is not proof of completed provider execution.
+code capture, and a native submission acknowledgement is not completed provider execution.
 
 ## Guardrails for continuation
 

@@ -42,11 +42,11 @@ def main() -> None:
             state_path=Path(directory) / "state.db",
             demo_mode=True,
             api_access_key=None,
-            cognee_base_url=None,
-            hydradb_base_url=None,
-            hotdata_base_url=None,
-            rocketride_base_url=None,
-            rote_base_url=None,
+            cognee_api_key=None,
+            hydradb_api_key=None,
+            hotdata_api_key=None,
+            rocketride_api_key=None,
+            rote_play_ref=None,
         )
         with TestClient(create_app(settings)) as client:
             assert client.get("/api/v1/health").status_code == 200

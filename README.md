@@ -16,6 +16,7 @@ This repository publishes the source code, not a hosted application.
 - [RetrievalLab_Hackathon_Architecture.md](RetrievalLab_Hackathon_Architecture.md):
   original product proposal; illustrative diagrams and numbers are not execution evidence.
 - [SECURITY.md](SECURITY.md): implemented boundaries and Snyk commands.
+- [INTEGRATIONS.md](INTEGRATIONS.md): native provider settings and remaining live setup.
 
 ## What runs locally
 
@@ -29,9 +30,9 @@ The frontend presents returned evidence, diagnoses, strategy attempts, learning 
 provider modes and recorded metrics. Sample UI data is available only through explicit
 `VITE_DEMO_MODE=true`.
 
-Sponsor-named adapters define **custom bridge contracts**. A working local fallback or a
-successful contract test does not prove a native Cognee, HydraDB, hotdata.dev, RocketRide
-or Rote integration. Their native setup and end-to-end verification remain open.
+Native provider adapters replace the old custom bridge contracts. Missing credentials use
+explicit local fallbacks. Account/data setup, reviewed RocketRide/Rote workflows, and live
+end-to-end verification remain open; see [INTEGRATIONS.md](INTEGRATIONS.md).
 
 ## Start from the installed environment
 
@@ -70,7 +71,7 @@ On the audited Windows/Python environment:
 ```powershell
 cd backend
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -c constraints.txt -e ".[dev]"
+.\.venv\Scripts\python.exe -m pip install -c constraints.txt -e ".[dev,native]"
 ```
 
 `constraints.txt` records the installed versions for Windows/Python 3.14; it is not a
@@ -93,6 +94,7 @@ From `backend/`:
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\ruff.exe check app tests scripts
 .\.venv\Scripts\python.exe scripts/verify_demo.py
+.\.venv\Scripts\python.exe scripts/check_integrations.py
 ```
 
 From `web/`:
@@ -102,7 +104,7 @@ npm run build
 npm run check:contract
 ```
 
-The scenario script uses disposable local state and unset sponsor endpoints. It checks
+The scenario script uses disposable local state and explicitly disabled native credentials. It checks
 HTTP responses for discovery, replay, the 14-day current refund policy, unknown-ID
 abstention and database persistence across an app restart. It does not alter the demo
 database or verify remote sponsors. See the audit report for completed check results.
@@ -127,22 +129,21 @@ no model calls.
 Set `RETRIEVALLAB_STATE_PATH` to a new file for a fresh demonstration. Do not erase
 existing learned state to reset a demonstration.
 
-## Bridge boundaries
+## Native integration boundaries
 
-These paths belong to RetrievalLab's bridge contract, not documented native sponsor URLs:
+Shared hosts and provider-specific authentication are supplied by the native adapters:
 
-| Bridge | Contract operation | Must become load-bearing |
+| Provider | Implemented interface | Remaining acceptance |
 |---|---|---|
-| Cognee | `POST /v1/memories/construct` | Structured memory produced from a run |
-| HydraDB | `POST /v1/cypher` | Durable graph recall and learning writes |
-| hotdata.dev | `POST /v1/query`, `/v1/query/telemetry` | Candidate results and retrieval telemetry |
-| RocketRide | `POST /v1/executions/plan`, `/v1/executions/replay` | Planning and execution orchestration |
-| Rote | `POST /v1/plays/lookup`, `/v1/plays/capture` | Actual workflow capture and deterministic replay |
+| Cognee | Native multipart add, cognify, search | Provider-produced structure used downstream |
+| HydraDB | Tenant-scoped add_memory / recall_preferences | Durable remote recall and graph acceptance |
+| hotdata.dev | Native SQL query and optional table load | Loaded corpus and real candidate/telemetry evidence |
+| RocketRide | Official Python SDK with configured `.pipe` | Reviewed pipeline and consumed tool outputs |
+| Rote | Installed CLI, explicit approved Play replay | Account setup and actual native trace capture |
 
-Implement a bridge against each event-provided API or replace the adapter with its native
-SDK. Validate response shapes using the contract tests in `backend/tests/`; inspect mode
-and detail fields on each operation. Invalid remote data must not be treated as accepted
-remote execution. No provider setup, login, credits or deployment is required for local checks.
+Run `backend/scripts/check_integrations.py` for a credential-safe offline setup report.
+Provider tests use mocked native transports; inspect mode and detail fields on each
+operation. No provider setup, login, credits or deployment is required for local checks.
 
 See [SECURITY.md](SECURITY.md) for Snyk authentication and scan commands. No completed
 Snyk scan is currently claimed.

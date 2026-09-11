@@ -136,7 +136,7 @@ export function normalizeRun(raw: BackendRun): RetrievalRun {
       ? raw.quality_lift == null ? null : Math.round(raw.quality_lift * 100)
       : raw.baseline_skipped ? null : Math.round((raw.winner.quality_score - raw.baseline.quality_score) * 100),
     backendDemoMode: raw.demo_mode ?? false,
-    learned: raw.trace.filter((event) => /cognee|hydra|rote/.test(event)),
+    learned: raw.trace.filter((event) => /cognee|hydra|rote|^play:/.test(event)),
     providers: raw.integrations,
   };
 }

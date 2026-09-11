@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 
 from app.models import DashboardSummary, RetrievalRunRequest, RetrievalRunResponse
+from app.services.integration_setup import integration_readiness
 
 router = APIRouter(prefix="/api/v1")
 
@@ -34,3 +35,11 @@ async def run_retrieval(
 @router.get("/dashboard", response_model=DashboardSummary)
 async def dashboard(request: Request, _: None = Depends(require_access)) -> DashboardSummary:
     return DashboardSummary.model_validate(request.app.state.repository.dashboard())
+
+
+@router.get("/integrations")
+async def integrations(request: Request, _: None = Depends(require_access)) -> dict:
+    return {
+        "scope": "Offline configuration only; live authentication and execution are unverified.",
+        "integrations": integration_readiness(request.app.state.settings),
+    }

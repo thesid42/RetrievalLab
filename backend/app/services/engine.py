@@ -74,6 +74,14 @@ class RetrievalEngine:
         if replay_attempted:
             path = "replay"
             planner_calls = 0
+            # Looking up a local play must never execute external code. Only an
+            # explicitly configured, reviewed native Play is invoked at replay.
+            rote_status = await self.rote.replay(parameters={
+                "query": redact_sensitive(profile.raw_query),
+                "query_pattern": profile.signature,
+                "strategy": play["strategy"].value,
+            })
+            integrations.append(rote_status)
             rocket_status = await self.rocketride.execute_play(profile, play)
             integrations.append(rocket_status)
             replay_run, hot_status = await self._execute(profile, play["strategy"], request.top_k)
@@ -87,8 +95,9 @@ class RetrievalEngine:
                 failure_type=memory.failure_type,
                 confidence=memory.similarity,
                 explanation=(
-                    "HydraDB recognized a previously solved query pattern, so the baseline "
-                    "diagnostic search was skipped and its Rote play was replayed."
+                    "The memory adapter recognized a previously solved query pattern, so "
+                    "the baseline diagnostic search was skipped and its saved strategy was "
+                    "replayed. Provider statuses show which stages ran natively or locally."
                 ),
                 signals=replay_run.signals,
             )
@@ -130,18 +139,22 @@ class RetrievalEngine:
         promoted = bool(path == "discovery" and meaningful_lift)
         answer = self._grounded_answer(profile, winner)
         memory_delta, cognee_status = await self.cognee.construct(
-            profile, diagnosis, winner
+            profile, diagnosis, winner,
+            publish=promoted, corpus_version=self.state.corpus_version,
         )
         integrations.append(cognee_status)
         memory_delta.setdefault("corpus_version", self.state.corpus_version)
         hydra_write = await self.hydra.write(memory_delta, promoted=promoted)
         integrations.append(hydra_write)
+        if promoted and hydra_write.mode == "error-fallback":
+            promoted = False
+            trace.append("memory:promotion_failed")
         play_captured = False
         if path == "discovery" and promoted:
             rote_capture = await self.rote.capture(profile.signature, winner)
             integrations.append(rote_capture)
-            play_captured = True
-            trace.append("rote:captured")
+            play_captured = rote_capture.mode != "error-fallback"
+            trace.append("play:captured_local" if play_captured else "play:capture_failed")
 
         elapsed_ms = round((perf_counter() - started) * 1000, 2)
         response = RetrievalRunResponse(
@@ -204,7 +217,7 @@ class RetrievalEngine:
         self.state.save_run(state_payload)
         response.integrations.append(telemetry_status)
         response.trace.extend([
-            "cognee:structured",
+            f"cognee:{cognee_status.mode}",
             "hydra:promoted" if promoted else "hydra:run_only",
             "telemetry:recorded",
             f"outcome:{outcome.value}",
